@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "ContactSubmission": {
+      "title": "Contact Submission",
+      "description": "A contact form submission received through the Darex corporate portfolio website.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the submission"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Sender's full name"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 150,
+          "description": "Sender's contact email"
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Sender's phone number"
+        },
+        "company": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Sender's company or organization"
+        },
+        "projectType": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Selected service or project category"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 3000,
+          "description": "Project details or inquiry message"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Flag indicating whether the admin has reviewed this message"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of when submission was created"
+        }
+      },
+      "required": ["name", "email", "message", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/submissions/{submissionId}": {
+      "schema": "ContactSubmission",
+      "description": "Collection of all public contact form inquiries received by Darex."
+    }
+  }
+}

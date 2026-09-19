@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidSubmission(data) {
+      return data.keys().hasAll(['name', 'email', 'message', 'read', 'createdAt']) &&
+             data.keys().hasOnly(['name', 'email', 'phone', 'company', 'projectType', 'message', 'read', 'createdAt']) &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+             data.email is string && data.email.size() >= 5 && data.email.size() <= 150 &&
+             data.message is string && data.message.size() >= 5 && data.message.size() <= 3000 &&
+             data.read is bool &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+             (!('company' in data) || (data.company is string && data.company.size() <= 120)) &&
+             (!('projectType' in data) || (data.projectType is string && data.projectType.size() <= 80));
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Submissions collection
+    match /submissions/{submissionId} {
+      // Public visitors can submit contact forms with strict payload validation
+      allow create: if isValidSubmission(incoming()) && incoming().read == false;
+
+      // Only authenticated administrators can read, list, delete, or mark submissions as read/unread
+      allow read: if isSignedIn();
+      
+      allow update: if isSignedIn() &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['read']) &&
+                    incoming().read is bool;
+
+      allow delete: if isSignedIn();
+    }
+  }
+}
