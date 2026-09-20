@@ -5,9 +5,20 @@ import { HomePage } from './pages/HomePage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Footer } from './components/Footer';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { OfflineFallback } from './components/OfflineFallback';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'admin'>('home');
+  const isOnline = useOnlineStatus();
+  const [dismissedOfflineFallback, setDismissedOfflineFallback] = useState(false);
+
+  // Automatically reset dismissal flag when network connectivity returns
+  useEffect(() => {
+    if (isOnline) {
+      setDismissedOfflineFallback(false);
+    }
+  }, [isOnline]);
 
   useEffect(() => {
     // Check initial URL pathname or hash
@@ -54,10 +65,12 @@ export default function App() {
     }
   };
 
+  const isShowingOfflineFallback = !isOnline && !dismissedOfflineFallback;
+
   return (
     <div className="min-h-screen bg-[#090a0f] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
-      {/* Network offline/online indicator */}
-      <OfflineIndicator />
+      {/* Network offline/online status indicator */}
+      <OfflineIndicator hideBottomBanner={isShowingOfflineFallback} />
 
       {/* Sticky Top Navigation */}
       <Navbar
@@ -68,7 +81,24 @@ export default function App() {
       {/* Main View Router with Motion Transitions */}
       <div className="flex-1">
         <AnimatePresence mode="wait">
-          {currentView === 'home' ? (
+          {isShowingOfflineFallback ? (
+            <motion.div
+              key="offline-fallback-view"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+            >
+              <OfflineFallback
+                onRetry={() => {
+                  if (typeof navigator !== 'undefined' && navigator.onLine) {
+                    setDismissedOfflineFallback(false);
+                  }
+                }}
+                onBrowseCachedAnyway={() => setDismissedOfflineFallback(true)}
+              />
+            </motion.div>
+          ) : currentView === 'home' ? (
             <motion.div
               key="home-view"
               initial={{ opacity: 0 }}
@@ -92,8 +122,8 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* Global Footer (shown on public site) */}
-      {currentView === 'home' && (
+      {/* Global Footer (shown on public site when not in offline fallback mode) */}
+      {!isShowingOfflineFallback && currentView === 'home' && (
         <Footer
           onNavigateToView={handleNavigateToView}
           onScrollToSection={handleScrollToSection}

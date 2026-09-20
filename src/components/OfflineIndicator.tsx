@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { WifiOff, Wifi, AlertTriangle } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
-export const OfflineIndicator: React.FC = () => {
+interface OfflineIndicatorProps {
+  hideBottomBanner?: boolean;
+}
+
+export const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ hideBottomBanner = false }) => {
   const isOnline = useOnlineStatus();
   const [showRestored, setShowRestored] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
@@ -34,6 +38,10 @@ export const OfflineIndicator: React.FC = () => {
         <span>Connection restored — Live sync active</span>
       </div>
     );
+  }
+
+  if (hideBottomBanner) {
+    return null;
   }
 
   return (
