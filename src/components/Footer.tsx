@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUp, Github, Linkedin, Twitter, Dribbble, Shield, Heart } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
+import { BrandLogo } from './BrandLogo';
 
 interface FooterProps {
   onNavigateToView: (view: 'home' | 'admin') => void;
@@ -19,14 +20,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
           
           {/* Brand Col */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-[1px] shadow-md shadow-blue-500/20">
-                <div className="w-full h-full bg-[#090a0f] rounded-[11px] flex items-center justify-center font-bold text-base text-white font-mono">
-                  <span className="text-blue-500">D</span>X
-                </div>
-              </div>
-              <span className="text-xl font-bold tracking-tight text-white">DAREX</span>
-            </div>
+            <BrandLogo size="md" />
             <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
               Building digital solutions that move businesses forward. Full-cycle engineering, modern design, and enterprise-grade web development.
             </p>
@@ -36,36 +30,36 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
                 target="_blank"
                 rel="noreferrer"
                 aria-label="GitHub"
-                className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:text-white transition-colors"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
               >
-                <Github className="w-4 h-4" />
+                <Github className="w-4 h-4" strokeWidth={1.4} />
               </a>
               <a
                 href={COMPANY_INFO.socialLinks.linkedin}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="LinkedIn"
-                className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:text-white transition-colors"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
               >
-                <Linkedin className="w-4 h-4" />
+                <Linkedin className="w-4 h-4" strokeWidth={1.4} />
               </a>
               <a
                 href={COMPANY_INFO.socialLinks.twitter}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Twitter"
-                className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:text-white transition-colors"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
               >
-                <Twitter className="w-4 h-4" />
+                <Twitter className="w-4 h-4" strokeWidth={1.4} />
               </a>
               <a
                 href={COMPANY_INFO.socialLinks.dribbble}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Dribbble"
-                className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:text-white transition-colors"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
               >
-                <Dribbble className="w-4 h-4" />
+                <Dribbble className="w-4 h-4" strokeWidth={1.4} />
               </a>
             </div>
           </div>

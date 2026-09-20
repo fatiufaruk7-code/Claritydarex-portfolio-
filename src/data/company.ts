@@ -4,11 +4,11 @@ export const COMPANY_INFO = {
   name: 'Darex',
   tagline: 'Building Digital Solutions That Move Businesses Forward.',
   subheadline:
-    'Darex delivers enterprise-grade digital solutions designed to help businesses grow, establish commanding online presence, and operate with maximum efficiency.',
+    'Darex delivers modern, custom digital solutions designed to help businesses establish an authoritative online presence, engage clients, and operate with maximum efficiency.',
   email: 'fatiufaruk7@gmail.com',
   phone: '08137941486',
   phoneFormatted: '+234 813 794 1486',
-  location: 'Lagos, Nigeria & Remote Worldwide',
+  location: 'Lagos, Nigeria (Serving Clients Worldwide)',
   socialLinks: {
     github: 'https://github.com/darex',
     linkedin: 'https://linkedin.com/company/darex',
@@ -19,24 +19,24 @@ export const COMPANY_INFO = {
 
 export const COMPANY_STATS: StatItem[] = [
   {
-    value: '120+',
-    label: 'Projects Completed',
-    sublabel: 'Delivered on time across diverse global industries',
+    value: '100%',
+    label: 'Custom Coded',
+    sublabel: 'Bespoke architectures with zero bloated templates or locked builders',
   },
   {
-    value: '85+',
-    label: 'Happy Clients',
-    sublabel: 'High retention and sustained business partnerships',
+    value: '< 1s',
+    label: 'Fast Load Speeds',
+    sublabel: 'Optimized performance, clean assets, and modern toolchains',
   },
   {
-    value: '7+',
-    label: 'Years Experience',
-    sublabel: 'Battle-tested software design and engineering',
+    value: '100%',
+    label: 'Mobile Responsive',
+    sublabel: 'Pixel-perfect UX adapted across phones, tablets, and ultra-wides',
   },
   {
-    value: '12+',
-    label: 'Services Offered',
-    sublabel: 'Comprehensive end-to-end digital capabilities',
+    value: '24h',
+    label: 'Direct Response',
+    sublabel: 'Prompt communication directly with lead developer Faruk Fatiu',
   },
 ];
 

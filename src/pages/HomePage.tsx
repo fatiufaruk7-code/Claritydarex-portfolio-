@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { HeroSection } from '../sections/HeroSection';
 import { AboutSection } from '../sections/AboutSection';
 import { ServicesSection } from '../sections/ServicesSection';
@@ -70,11 +71,15 @@ export const HomePage: React.FC = () => {
       <ContactSection selectedProjectType={selectedProjectType} />
 
       {/* Project Details Modal */}
-      <ProjectModal
-        project={selectedProject}
-        onClose={() => setSelectedProject(null)}
-        onStartSimilarProject={handleStartSimilarProject}
-      />
+      <AnimatePresence>
+        {selectedProject && (
+          <ProjectModal
+            project={selectedProject}
+            onClose={() => setSelectedProject(null)}
+            onStartSimilarProject={handleStartSimilarProject}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Floating Instant WhatsApp Lead Connect */}
       <FloatingWhatsApp />

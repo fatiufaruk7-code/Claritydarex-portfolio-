@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, HelpCircle, ArrowRight } from 'lucide-react';
 
 interface FaqItem {
@@ -51,9 +52,15 @@ export const FaqSection: React.FC<{ onContactClick: () => void }> = ({ onContact
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-950/60 border border-blue-800/40 text-xs font-mono text-blue-400 mb-4">
-            <HelpCircle className="w-3.5 h-3.5" />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.5 }}
+          className="text-center max-w-2xl mx-auto mb-16"
+        >
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-950/60 border border-blue-800/40 text-xs font-mono text-blue-400 mb-4 shadow-sm">
+            <HelpCircle className="w-3.5 h-3.5" strokeWidth={1.5} />
             <span>COMMONLY ASKED QUESTIONS</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -62,39 +69,53 @@ export const FaqSection: React.FC<{ onContactClick: () => void }> = ({ onContact
           <p className="mt-4 text-slate-300 text-base">
             Everything you need to know about our engineering standards, delivery process, and working with Darex.
           </p>
-        </div>
+        </motion.div>
 
         {/* Accordion list */}
         <div className="space-y-4">
           {FAQ_ITEMS.map((item, idx) => {
             const isOpen = openIndex === idx;
             return (
-              <div
+              <motion.div
                 key={idx}
-                className="bg-[#0e121a] border border-slate-800/90 rounded-2xl overflow-hidden transition-colors hover:border-slate-700"
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.35, delay: idx * 0.05 }}
+                className="bg-[#0e121a] border border-slate-800/90 rounded-2xl overflow-hidden transition-all hover:border-slate-700 shadow-md"
               >
                 <button
                   onClick={() => toggle(idx)}
-                  className="w-full py-5 px-6 text-left flex items-center justify-between gap-4 focus:outline-none"
+                  className="w-full py-5 px-6 text-left flex items-center justify-between gap-4 focus:outline-none group"
                 >
-                  <span className="text-base font-semibold text-white">
+                  <span className="text-base font-semibold text-white group-hover:text-blue-300 transition-colors">
                     {item.question}
                   </span>
                   <div
-                    className={`w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 shrink-0 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-blue-400' : ''
+                    className={`w-8 h-8 rounded-lg bg-gradient-to-b from-slate-800/80 to-slate-900 border border-slate-700/70 flex items-center justify-center text-slate-400 shrink-0 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)] transition-all duration-200 ${
+                      isOpen ? 'rotate-180 text-blue-400 border-blue-500/50 shadow-[0_0_12px_rgba(59,130,246,0.3)]' : 'group-hover:border-slate-600 group-hover:text-slate-200'
                     }`}
                   >
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-4 h-4" strokeWidth={1.5} />
                   </div>
                 </button>
 
-                {isOpen && (
-                  <div className="px-6 pb-6 pt-1 text-sm text-slate-300 leading-relaxed border-t border-slate-800/50">
-                    {item.answer}
-                  </div>
-                )}
-              </div>
+                <AnimatePresence>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-6 pb-6 pt-1 text-sm text-slate-300 leading-relaxed border-t border-slate-800/60">
+                        {item.answer}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             );
           })}
         </div>
@@ -109,7 +130,7 @@ export const FaqSection: React.FC<{ onContactClick: () => void }> = ({ onContact
             className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
           >
             <span>Ask us directly in the inquiry form</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.5} />
           </button>
         </div>
 

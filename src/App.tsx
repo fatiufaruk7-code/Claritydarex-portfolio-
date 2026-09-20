@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -60,13 +61,31 @@ export default function App() {
         onNavigateToView={handleNavigateToView}
       />
 
-      {/* Main View Router */}
+      {/* Main View Router with Motion Transitions */}
       <div className="flex-1">
-        {currentView === 'home' ? (
-          <HomePage />
-        ) : (
-          <AdminDashboard onReturnToHome={() => handleNavigateToView('home')} />
-        )}
+        <AnimatePresence mode="wait">
+          {currentView === 'home' ? (
+            <motion.div
+              key="home-view"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <HomePage />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="admin-view"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AdminDashboard onReturnToHome={() => handleNavigateToView('home')} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Global Footer (shown on public site) */}

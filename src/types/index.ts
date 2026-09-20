@@ -47,6 +47,15 @@ export interface TestimonialItem {
   projectDelivered: string;
 }
 
+export interface CommitmentItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  iconName: string;
+  guarantee: string;
+}
+
 export interface ProcessStep {
   stepNumber: string;
   title: string;

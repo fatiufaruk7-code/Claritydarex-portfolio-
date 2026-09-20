@@ -1,37 +1,43 @@
-import type { TestimonialItem } from '../types';
+import type { TestimonialItem, CommitmentItem } from '../types';
 
-export const TESTIMONIALS_DATA: TestimonialItem[] = [
+// We maintain a strict honesty policy: testimonials are only published when verified from actual clients.
+export const TESTIMONIALS_DATA: TestimonialItem[] = [];
+
+export const COMMITMENTS_DATA: CommitmentItem[] = [
   {
-    id: 'test-1',
-    clientName: 'Marcus Adebayo',
-    clientRole: 'Chief Technology Officer',
-    company: 'Apex Global Logistics',
-    avatarText: 'MA',
-    quote:
-      'Darex approached our complex global freight platform with remarkable engineering discipline. They did not just deliver a modern website; they re-architected how our customers interact with our services. The speed, reliability, and visual authority exceeded our executive board’s expectations.',
-    rating: 5,
-    projectDelivered: 'Enterprise Corporate Platform & Quote Engine',
+    id: 'commit-1',
+    title: 'Direct Developer Collaboration',
+    subtitle: 'Lead Engineer Faruk Fatiu',
+    description:
+      'You collaborate directly with your lead engineer. No account manager telephone games, delayed responses, or lost specifications between sales and developers.',
+    iconName: 'UserCheck',
+    guarantee: 'Direct Communication & 24h Response',
   },
   {
-    id: 'test-2',
-    clientName: 'Elena Rostova',
-    clientRole: 'Managing Director',
-    company: 'LuxeAura Retail Ltd.',
-    avatarText: 'ER',
-    quote:
-      'Working with Darex was hands-down the best digital development partnership we’ve experienced. They understood our brand aesthetics instantly and delivered an e-commerce platform that increased our mobile conversion rate by over 40% in the first quarter alone.',
-    rating: 5,
-    projectDelivered: 'E-commerce Storefront & Custom Checkout',
+    id: 'commit-2',
+    title: '100% Code & IP Ownership',
+    subtitle: 'Zero Vendor Lock-In',
+    description:
+      'You own all custom source code, design assets, and database architecture. Complete repository ownership and hosting credentials are unconditionally handed over to you.',
+    iconName: 'Key',
+    guarantee: 'Full Copyright & Repository Transfer',
   },
   {
-    id: 'test-3',
-    clientName: 'Dr. David Sterling',
-    clientRole: 'Dean of Academic Affairs',
-    company: 'Horizon Educational Foundation',
-    avatarText: 'DS',
-    quote:
-      'Darex brought exceptional clarity to what could have been a chaotic institutional overhaul. Their team was communicative, responsive to feedback, and delivered a secure portal accessible to students of all technical proficiencies. Truly top-tier professionals.',
-    rating: 5,
-    projectDelivered: 'Institutional Student & Admissions Portal',
+    id: 'commit-3',
+    title: 'Milestone-Based Approvals',
+    subtitle: 'Inspect Before Advancing',
+    description:
+      'Every project follows transparent, structured milestones. You test and approve live interactive staging builds before subsequent engineering phases proceed.',
+    iconName: 'CheckCircle',
+    guarantee: 'Predictable Staging Verifications',
+  },
+  {
+    id: 'commit-4',
+    title: '30-Day Post-Launch Warranty',
+    subtitle: 'Launch Peace of Mind',
+    description:
+      'Every website and application delivered includes 30 days of complimentary bug resolution, performance monitoring, and configuration support after going live.',
+    iconName: 'ShieldCheck',
+    guarantee: '30 Days Post-Deployment Support',
   },
 ];

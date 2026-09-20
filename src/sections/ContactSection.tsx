@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import {
   Mail,
   Phone,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
 import { submitContactForm } from '../services/submissionService';
+import { ClassicIcon } from '../components/ClassicIcon';
 
 interface ContactSectionProps {
   selectedProjectType?: string;
@@ -154,7 +156,13 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16"
+        >
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-950/60 border border-blue-800/40 text-xs font-mono text-blue-400 mb-4">
               <ShieldCheck className="w-3.5 h-3.5" />
@@ -179,12 +187,18 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
               <span>Chat via WhatsApp</span>
             </a>
           </div>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14">
           
           {/* Left Column: Direct Contact Information */}
-          <div className="lg:col-span-5 space-y-8">
+          <motion.div
+            initial={{ opacity: 0, x: -25 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="lg:col-span-5 space-y-8"
+          >
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-white tracking-tight">
                 Direct Communication Channels
@@ -197,23 +211,21 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
             {/* Information Cards */}
             <div className="space-y-4">
               {/* Email Card */}
-              <div className="p-5 rounded-2xl bg-[#0e121a] border border-slate-800/90 hover:border-slate-700 transition-colors">
+              <div className="group p-5 rounded-2xl bg-[#0e121a] border border-slate-800/90 hover:border-slate-700 transition-all shadow-md hover:shadow-xl hover:shadow-black/50">
                 <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                    <Mail className="w-5 h-5" />
-                  </div>
+                  <ClassicIcon icon={Mail} size="md" variant="sapphire" strokeWidth={1.35} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
                       Executive Inbox
                     </div>
                     <a
                       href={`mailto:${COMPANY_INFO.email}`}
-                      className="text-sm sm:text-base font-semibold text-white hover:text-blue-400 transition-colors mt-0.5 block truncate"
+                      className="text-sm sm:text-base font-semibold text-white group-hover:text-blue-400 transition-colors mt-0.5 block truncate"
                     >
                       {COMPANY_INFO.email}
                     </a>
                     <div className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
                       <span>Monitored 7 days a week</span>
                     </div>
                   </div>
@@ -221,18 +233,16 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
               </div>
 
               {/* Phone / WhatsApp Card */}
-              <div className="p-5 rounded-2xl bg-[#0e121a] border border-slate-800/90 hover:border-slate-700 transition-colors">
+              <div className="group p-5 rounded-2xl bg-[#0e121a] border border-slate-800/90 hover:border-slate-700 transition-all shadow-md hover:shadow-xl hover:shadow-black/50">
                 <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
-                    <Phone className="w-5 h-5" />
-                  </div>
+                  <ClassicIcon icon={Phone} size="md" variant="platinum" strokeWidth={1.35} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
                       Direct Telephone & WhatsApp
                     </div>
                     <a
                       href={`tel:${COMPANY_INFO.phone}`}
-                      className="text-sm sm:text-base font-semibold text-white hover:text-blue-400 transition-colors font-mono mt-0.5 block"
+                      className="text-sm sm:text-base font-semibold text-white group-hover:text-blue-400 transition-colors font-mono mt-0.5 block"
                     >
                       {COMPANY_INFO.phoneFormatted}
                     </a>
@@ -244,7 +254,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                         className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
                       >
                         <span>WhatsApp Quick Chat</span>
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
                       </a>
                     </div>
                   </div>
@@ -252,34 +262,32 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
               </div>
 
               {/* Location Card */}
-              <div className="p-5 rounded-2xl bg-[#0e121a] border border-slate-800/90 hover:border-slate-700 transition-colors">
+              <div className="group p-5 rounded-2xl bg-[#0e121a] border border-slate-800/90 hover:border-slate-700 transition-all shadow-md hover:shadow-xl hover:shadow-black/50">
                 <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                    <MapPin className="w-5 h-5" />
-                  </div>
+                  <ClassicIcon icon={MapPin} size="md" variant="emerald" strokeWidth={1.35} />
                   <div>
                     <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
-                      Headquarters & Delivery Hub
+                      Location & Availability
                     </div>
                     <div className="text-sm sm:text-base font-semibold text-white mt-0.5">
                       {COMPANY_INFO.location}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      Collaborating with global clients across US, UK, and Africa
+                      Based in Lagos, Nigeria. Available for local and remote projects worldwide.
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Operating SLA Guarantee */}
-            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 space-y-1.5">
+            {/* Direct Response Guarantee */}
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 space-y-1.5 shadow-sm">
               <div className="font-semibold text-white flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                <span>Executive Response Standard</span>
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_6px_rgba(96,165,250,0.8)]" />
+                <span>Direct Response Standard</span>
               </div>
               <p className="text-slate-400 leading-relaxed">
-                Inquiries are triaged by senior technical architects. You will receive an actionable reply and proposal within 12 business hours.
+                Inquiries are reviewed directly by lead developer Faruk Fatiu. You will receive an actionable response and project consultation within 24 business hours.
               </p>
             </div>
 
@@ -294,51 +302,61 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Darex on GitHub"
-                  className="w-10 h-10 rounded-xl bg-[#0e121a] border border-slate-800 hover:border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
-                  <Github className="w-4 h-4" />
+                  <Github className="w-4 h-4" strokeWidth={1.4} />
                 </a>
                 <a
                   href={COMPANY_INFO.socialLinks.linkedin}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Darex on LinkedIn"
-                  className="w-10 h-10 rounded-xl bg-[#0e121a] border border-slate-800 hover:border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
-                  <Linkedin className="w-4 h-4" />
+                  <Linkedin className="w-4 h-4" strokeWidth={1.4} />
                 </a>
                 <a
                   href={COMPANY_INFO.socialLinks.twitter}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Darex on X/Twitter"
-                  className="w-10 h-10 rounded-xl bg-[#0e121a] border border-slate-800 hover:border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
-                  <Twitter className="w-4 h-4" />
+                  <Twitter className="w-4 h-4" strokeWidth={1.4} />
                 </a>
                 <a
                   href={COMPANY_INFO.socialLinks.dribbble}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Darex on Dribbble"
-                  className="w-10 h-10 rounded-xl bg-[#0e121a] border border-slate-800 hover:border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
-                  <Dribbble className="w-4 h-4" />
+                  <Dribbble className="w-4 h-4" strokeWidth={1.4} />
                 </a>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right Column: Contact Form */}
-          <div className="lg:col-span-7">
+          <motion.div
+            initial={{ opacity: 0, x: 25 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="lg:col-span-7"
+          >
             <div className="bg-[#0e121a] border border-slate-800 rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl relative">
               
               {/* Submission Success State */}
               {submittedSuccess && submittedData ? (
                 <div className="py-8 px-2 text-center space-y-6 animate-fadeIn">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
+                  <ClassicIcon
+                    icon={CheckCircle2}
+                    size="lg"
+                    variant="emerald"
+                    strokeWidth={1.4}
+                    className="mx-auto"
+                  />
                   
                   <div className="space-y-2">
                     <h3 className="text-2xl font-bold text-white">Inquiry Successfully Registered!</h3>
@@ -574,7 +592,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
               )}
 
             </div>
-          </div>
+          </motion.div>
 
         </div>
 

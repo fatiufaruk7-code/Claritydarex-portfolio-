@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import {
   Shield,
   Search,
-  Filter,
   RefreshCw,
   LogOut,
   Mail,
   MailOpen,
   Trash2,
-  ExternalLink,
   Calendar,
   Building,
   User as UserIcon,
@@ -22,9 +21,23 @@ import {
   X,
   Send,
   Loader2,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  Sparkles,
+  ShieldCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { AdminLogin } from './AdminLogin';
-import { getFirebaseInstance, checkFirebaseConfig } from '../firebase/config';
+import { getFirebaseInstance } from '../firebase/config';
+import {
+  getActiveAdminSession,
+  logoutAdmin,
+  updateAdminPassword,
+  resetAdminPasswordToDefault,
+  getStoredAdminPassword,
+} from '../services/adminAuthService';
 import {
   getContactSubmissions,
   toggleSubmissionRead,
@@ -37,7 +50,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email: string; name?: string } | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   
   // Data states
@@ -57,22 +70,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Monitor Admin Authentication (Firebase Auth + Verified Owner Session)
+  // Change password modal
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [passwordStatusMsg, setPasswordStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showPasswordText, setShowPasswordText] = useState(false);
+
+  // Monitor Admin Authentication
   useEffect(() => {
-    // 1. Check local owner session
-    const localSession = sessionStorage.getItem('darex_admin_session');
-    if (localSession) {
-      try {
-        const parsed = JSON.parse(localSession);
-        if (parsed.email) {
-          setCurrentUser({ email: parsed.email } as User);
-          setIsAuthLoading(false);
-          loadSubmissions();
-          return;
-        }
-      } catch (e) {
-        sessionStorage.removeItem('darex_admin_session');
-      }
+    // 1. Check local authorized admin session
+    const activeSession = getActiveAdminSession();
+    if (activeSession) {
+      setCurrentUser({ email: activeSession.email, name: activeSession.name });
+      setIsAuthLoading(false);
+      loadSubmissions();
+      return;
     }
 
     // 2. Check Firebase Auth if available
@@ -83,11 +97,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     }
 
     const unsubscribe = onAuthStateChanged(firebase.auth, (user) => {
-      setCurrentUser(user);
-      setIsAuthLoading(false);
-      if (user) {
+      if (user && user.email?.toLowerCase() === 'fatiufaruk7@gmail.com') {
+        setCurrentUser({ email: user.email, name: 'Faruk Fatiu' });
         loadSubmissions();
+      } else {
+        setCurrentUser(null);
       }
+      setIsAuthLoading(false);
     });
 
     return () => unsubscribe();
@@ -108,7 +124,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   };
 
   const handleSignOut = async () => {
-    sessionStorage.removeItem('darex_admin_session');
+    logoutAdmin();
     const firebase = getFirebaseInstance();
     if (firebase) {
       await signOut(firebase.auth);
@@ -120,7 +136,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     if (!submission.id) return;
     try {
       await toggleSubmissionRead(submission.id, submission.read);
-      // Update local state immediately
       setSubmissions((prev) =>
         prev.map((item) =>
           item.id === submission.id ? { ...item, read: !item.read } : item
@@ -148,6 +163,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
       alert(err instanceof Error ? err.message : 'Failed to delete submission.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleUpdatePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatusMsg(null);
+
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordStatusMsg({ type: 'error', text: 'New password and confirmation do not match.' });
+      return;
+    }
+
+    if (newPasswordInput.length < 4) {
+      setPasswordStatusMsg({ type: 'error', text: 'New password must be at least 4 characters.' });
+      return;
+    }
+
+    const res = updateAdminPassword(currentPasswordInput, newPasswordInput);
+    if (res.success) {
+      setPasswordStatusMsg({
+        type: 'success',
+        text: 'Password successfully updated! Your new credentials are now active.',
+      });
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+      setTimeout(() => {
+        setIsPasswordModalOpen(false);
+        setPasswordStatusMsg(null);
+      }, 2000);
+    } else {
+      setPasswordStatusMsg({ type: 'error', text: res.error || 'Failed to update password.' });
+    }
+  };
+
+  const handleResetPassword = () => {
+    if (window.confirm('Reset password to initial default (12345)?')) {
+      resetAdminPasswordToDefault();
+      setPasswordStatusMsg({
+        type: 'success',
+        text: 'Password reset to default (12345).',
+      });
     }
   };
 
@@ -180,7 +237,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   // Filtered submissions list
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((item) => {
-      // 1. Text search
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
@@ -190,13 +246,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
         item.projectType.toLowerCase().includes(q) ||
         item.message.toLowerCase().includes(q);
 
-      // 2. Status filter
       const matchesStatus =
         statusFilter === 'all' ||
         (statusFilter === 'unread' && !item.read) ||
         (statusFilter === 'read' && item.read);
 
-      // 3. Project type filter
       const matchesType =
         typeFilter === 'all' || item.projectType === typeFilter;
 
@@ -222,10 +276,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   if (isAuthLoading) {
     return (
       <div className="min-h-screen bg-[#07090e] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-slate-400">
+        <motion.div
+          animate={{ scale: [0.95, 1.05, 0.95] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="flex flex-col items-center gap-3 text-slate-400"
+        >
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
           <span className="text-sm font-mono">Authenticating Darex Security Layer...</span>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -236,7 +294,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
       <AdminLogin
         onReturnToHome={onReturnToHome}
         onLoginSuccess={(loggedEmail) => {
-          setCurrentUser({ email: loggedEmail || 'fatiufaruk7@gmail.com' } as User);
+          setCurrentUser({ email: loggedEmail || 'fatiufaruk7@gmail.com', name: 'Faruk Fatiu' });
           loadSubmissions();
         }}
       />
@@ -244,31 +302,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   }
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 selection:bg-blue-600 selection:text-white pt-24 pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#07090e] text-slate-100 selection:bg-blue-600 selection:text-white pt-24 pb-16 relative overflow-hidden">
+      {/* Dynamic Animated Ambient Backdrop */}
+      <motion.div
+        animate={{
+          opacity: [0.08, 0.16, 0.08],
+        }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute top-20 right-1/4 w-[650px] h-[450px] bg-blue-600/15 rounded-full blur-[160px] pointer-events-none"
+      />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        {/* Admin Dashboard Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-slate-800">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-blue-400 mb-1">
-              <Shield className="w-4 h-4 text-blue-400" />
-              <span>DAREX MANAGEMENT CONSOLE</span>
+        {/* Admin Dashboard Top Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 border-b border-slate-800/90"
+        >
+          {/* Admin Identity Card */}
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-[1px] shadow-lg shadow-blue-500/20 shrink-0">
+              <div className="w-full h-full bg-[#0d121c] rounded-[15px] flex items-center justify-center font-bold text-lg text-white font-mono shadow-inner">
+                FF
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Contact Form Inquiries
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Logged in as <span className="text-white font-medium">{currentUser.email || 'Admin'}</span>
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  AUTHENTICATED ADMINISTRATOR
+                </span>
+                <span className="text-xs font-mono text-slate-400 hidden sm:inline">•</span>
+                <span className="text-xs font-mono text-blue-400 hidden sm:inline">Role: Super Admin</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
+                Faruk Fatiu
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                {currentUser.email}
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Action Toolbar */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => {
+                setIsPasswordModalOpen(true);
+                setPasswordStatusMsg(null);
+              }}
+              id="admin-change-password-btn"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-blue-300 hover:text-white transition-all shadow-sm active:scale-[0.98]"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-blue-400" strokeWidth={1.5} />
+              <span>Change Password</span>
+            </button>
+
             <button
               onClick={loadSubmissions}
               disabled={isLoadingData}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingData ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingData ? 'animate-spin' : ''}`} strokeWidth={1.5} />
               <span>Refresh</span>
             </button>
 
@@ -277,7 +374,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
               disabled={submissions.length === 0}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors disabled:opacity-50"
             >
-              <Download className="w-3.5 h-3.5 text-blue-400" />
+              <Download className="w-3.5 h-3.5 text-blue-400" strokeWidth={1.5} />
               <span>Export CSV</span>
             </button>
 
@@ -292,64 +389,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
               onClick={handleSignOut}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 transition-all"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5" strokeWidth={1.5} />
               <span>Sign Out</span>
             </button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 my-8">
-          <div className="bg-[#0e121a] border border-slate-800 rounded-2xl p-5">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4 my-8"
+        >
+          <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
             <div className="text-xs font-mono text-slate-400 font-medium uppercase">
               Total Inquiries
             </div>
             <div className="text-2xl sm:text-3xl font-bold text-white font-mono mt-1">
               {submissions.length}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Stored in Firestore</div>
+            <div className="text-[11px] text-slate-400 mt-1">Client leads received</div>
           </div>
 
-          <div className="bg-[#0e121a] border border-slate-800 rounded-2xl p-5">
+          <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
             <div className="text-xs font-mono text-slate-400 font-medium uppercase">
               Unread Messages
             </div>
             <div className="text-2xl sm:text-3xl font-bold text-amber-400 font-mono mt-1">
               {unreadCount}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Requiring review</div>
+            <div className="text-[11px] text-slate-400 mt-1">Requiring your review</div>
           </div>
 
-          <div className="bg-[#0e121a] border border-slate-800 rounded-2xl p-5">
+          <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
             <div className="text-xs font-mono text-slate-400 font-medium uppercase">
-              Handled Inquiries
+              Reviewed Leads
             </div>
             <div className="text-2xl sm:text-3xl font-bold text-emerald-400 font-mono mt-1">
               {submissions.length - unreadCount}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Marked as reviewed</div>
+            <div className="text-[11px] text-slate-400 mt-1">Marked as handled</div>
           </div>
 
-          <div className="bg-[#0e121a] border border-slate-800 rounded-2xl p-5">
+          <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
             <div className="text-xs font-mono text-slate-400 font-medium uppercase">
-              Active Filters
+              Active Filter Results
             </div>
             <div className="text-2xl sm:text-3xl font-bold text-blue-400 font-mono mt-1">
               {filteredSubmissions.length}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Current view matches</div>
+            <div className="text-[11px] text-slate-400 mt-1">Visible in table</div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Filter & Search Bar */}
-        <div className="bg-[#0e121a] border border-slate-800 rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-          
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="bg-[#0e121a] border border-slate-800 rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4"
+        >
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" strokeWidth={1.5} />
             <input
               type="text"
-              placeholder="Search by client name, email, company, or message..."
+              placeholder="Search inquiries by client name, email, company, or message..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-blue-500"
@@ -358,13 +464,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
 
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Read/Unread Filter */}
             <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
               <button
                 onClick={() => setStatusFilter('all')}
                 className={`px-3 py-1 rounded-lg transition-colors ${
                   statusFilter === 'all'
-                    ? 'bg-blue-600 text-white font-medium'
+                    ? 'bg-blue-600 text-white font-medium shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -374,7 +479,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                 onClick={() => setStatusFilter('unread')}
                 className={`px-3 py-1 rounded-lg transition-colors ${
                   statusFilter === 'unread'
-                    ? 'bg-blue-600 text-white font-medium'
+                    ? 'bg-blue-600 text-white font-medium shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -384,15 +489,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                 onClick={() => setStatusFilter('read')}
                 className={`px-3 py-1 rounded-lg transition-colors ${
                   statusFilter === 'read'
-                    ? 'bg-blue-600 text-white font-medium'
+                    ? 'bg-blue-600 text-white font-medium shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Read
+                Reviewed
               </button>
             </div>
 
-            {/* Project Type Filter */}
             {distinctProjectTypes.length > 0 && (
               <select
                 value={typeFilter}
@@ -408,7 +512,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
               </select>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Data Error Notification */}
         {dataError && (
@@ -422,20 +526,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
         )}
 
         {/* Submissions List Table */}
-        <div className="bg-[#0e121a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="bg-[#0e121a] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl"
+        >
           {isLoadingData ? (
             <div className="py-20 text-center space-y-3">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
-              <p className="text-xs font-mono text-slate-400">Loading submissions from Firestore...</p>
+              <p className="text-xs font-mono text-slate-400">Loading submissions from Firestore database...</p>
             </div>
           ) : filteredSubmissions.length === 0 ? (
             <div className="py-20 text-center space-y-3">
-              <Mail className="w-10 h-10 text-slate-600 mx-auto" />
+              <Mail className="w-10 h-10 text-slate-600 mx-auto" strokeWidth={1.5} />
               <h3 className="text-base font-semibold text-white">No submissions found</h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
                 {searchQuery || statusFilter !== 'all' || typeFilter !== 'all'
                   ? 'Try clearing your search or filter criteria.'
-                  : 'Contact form submissions from visitors will appear here automatically.'}
+                  : 'Contact form submissions submitted by potential clients will appear here in real time.'}
               </p>
             </div>
           ) : (
@@ -456,7 +565,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                     <tr
                       key={sub.id}
                       className={`hover:bg-slate-900/60 transition-colors ${
-                        !sub.read ? 'bg-blue-950/10 font-medium' : ''
+                        !sub.read ? 'bg-blue-950/20 font-medium' : ''
                       }`}
                     >
                       {/* Status */}
@@ -470,7 +579,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
-                              sub.read ? 'bg-slate-500' : 'bg-amber-400'
+                              sub.read ? 'bg-slate-500' : 'bg-amber-400 animate-pulse'
                             }`}
                           />
                           {sub.read ? 'REVIEWED' : 'UNREAD'}
@@ -483,7 +592,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                         <div className="text-slate-400 text-xs">{sub.email}</div>
                         {sub.company && (
                           <div className="text-[11px] text-blue-400 flex items-center gap-1 mt-0.5">
-                            <Building className="w-3 h-3" />
+                            <Building className="w-3 h-3" strokeWidth={1.5} />
                             <span>{sub.company}</span>
                           </div>
                         )}
@@ -518,7 +627,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                       <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
                         <button
                           onClick={() => setActiveMessage(sub)}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-semibold transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-semibold transition-colors shadow-sm"
                         >
                           View
                         </button>
@@ -527,14 +636,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                           title={sub.read ? 'Mark as Unread' : 'Mark as Read'}
                           className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
                         >
-                          {sub.read ? <Mail className="w-3.5 h-3.5" /> : <MailOpen className="w-3.5 h-3.5" />}
+                          {sub.read ? <Mail className="w-3.5 h-3.5" strokeWidth={1.5} /> : <MailOpen className="w-3.5 h-3.5 text-blue-400" strokeWidth={1.5} />}
                         </button>
                         <button
                           onClick={() => setDeletingId(sub.id!)}
                           title="Delete submission"
                           className="p-1.5 rounded-lg bg-slate-900 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition-colors"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                         </button>
                       </td>
                     </tr>
@@ -543,156 +652,307 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
               </table>
             </div>
           )}
-        </div>
+        </motion.div>
 
       </div>
 
+      {/* Change Password Modal */}
+      <AnimatePresence>
+        {isPasswordModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-md bg-[#0e121a] border border-slate-800 rounded-2xl p-6 sm:p-7 shadow-2xl space-y-5"
+            >
+              <div className="flex items-start justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                    <KeyRound className="w-4 h-4" strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Administrator Security</h3>
+                    <p className="text-xs text-slate-400">Change password for Faruk Fatiu</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+              </div>
+
+              {passwordStatusMsg && (
+                <div
+                  className={`p-3 rounded-xl text-xs flex items-start gap-2 ${
+                    passwordStatusMsg.type === 'success'
+                      ? 'bg-emerald-950/60 border border-emerald-800/60 text-emerald-200'
+                      : 'bg-rose-950/60 border border-rose-800/60 text-rose-200'
+                  }`}
+                >
+                  {passwordStatusMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" strokeWidth={1.5} />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" strokeWidth={1.5} />
+                  )}
+                  <span>{passwordStatusMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleUpdatePassword} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1" htmlFor="curr-pass">
+                    Current Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="curr-pass"
+                      type={showPasswordText ? 'text' : 'password'}
+                      required
+                      value={currentPasswordInput}
+                      onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                      placeholder="Initial default is 12345"
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1" htmlFor="new-pass">
+                    New Password
+                  </label>
+                  <input
+                    id="new-pass"
+                    type={showPasswordText ? 'text' : 'password'}
+                    required
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    placeholder="Enter new password (min 4 characters)"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1" htmlFor="confirm-pass">
+                    Confirm New Password
+                  </label>
+                  <input
+                    id="confirm-pass"
+                    type={showPasswordText ? 'text' : 'password'}
+                    required
+                    value={confirmPasswordInput}
+                    onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showPasswordText}
+                      onChange={(e) => setShowPasswordText(e.target.checked)}
+                      className="rounded bg-slate-900 border-slate-800 text-blue-600 focus:ring-0"
+                    />
+                    <span>Show password text</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-amber-400 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" strokeWidth={1.5} />
+                    <span>Reset to 12345</span>
+                  </button>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsPasswordModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/30"
+                  >
+                    Update Password
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* View Individual Message Detail Modal */}
-      {activeMessage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="relative w-full max-w-2xl bg-[#0e121a] border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="flex items-start justify-between pb-4 border-b border-slate-800">
-              <div>
-                <span className="text-[11px] font-mono uppercase text-blue-400 font-semibold">
-                  Inquiry Details
-                </span>
-                <h3 className="text-xl font-bold text-white mt-1">
-                  {activeMessage.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setActiveMessage(null)}
-                className="p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Sender Meta Info */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs">
-              <div>
-                <span className="text-slate-400 block font-mono text-[10px] uppercase">Email</span>
-                <a
-                  href={`mailto:${activeMessage.email}`}
-                  className="text-blue-400 hover:underline font-medium break-all"
-                >
-                  {activeMessage.email}
-                </a>
-              </div>
-              <div>
-                <span className="text-slate-400 block font-mono text-[10px] uppercase">Phone</span>
-                <span className="text-white font-mono">{activeMessage.phone || 'Not provided'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block font-mono text-[10px] uppercase">Company</span>
-                <span className="text-white">{activeMessage.company || 'Not provided'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block font-mono text-[10px] uppercase">Project Type</span>
-                <span className="text-blue-300 font-medium">{activeMessage.projectType}</span>
-              </div>
-              <div className="col-span-2">
-                <span className="text-slate-400 block font-mono text-[10px] uppercase">Timestamp</span>
-                <span className="text-slate-300 font-mono">
-                  {new Date(activeMessage.createdAt).toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            {/* Message Body */}
-            <div>
-              <div className="text-xs font-mono uppercase text-slate-400 font-semibold mb-2">
-                Full Inquiry Message
-              </div>
-              <div className="p-4 rounded-xl bg-[#07090e] border border-slate-800/90 text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
-                {activeMessage.message}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <a
-                  href={`mailto:${activeMessage.email}?subject=Darex%20Inquiry%20Response%20-%20${encodeURIComponent(activeMessage.projectType)}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Reply via Email</span>
-                </a>
-
-                <button
-                  onClick={() => handleToggleRead(activeMessage)}
-                  className="px-3 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-800"
-                >
-                  {activeMessage.read ? 'Mark as Unread' : 'Mark as Read'}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setDeletingId(activeMessage.id!)}
-                  className="p-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/40 transition-colors"
-                  title="Delete submission"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+      <AnimatePresence>
+        {activeMessage && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-2xl bg-[#0e121a] border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6"
+            >
+              <div className="flex items-start justify-between pb-4 border-b border-slate-800">
+                <div>
+                  <span className="text-[11px] font-mono uppercase text-blue-400 font-semibold">
+                    Inquiry Details
+                  </span>
+                  <h3 className="text-xl font-bold text-white mt-1">
+                    {activeMessage.name}
+                  </h3>
+                </div>
                 <button
                   onClick={() => setActiveMessage(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                  className="p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors"
                 >
-                  Close
+                  <X className="w-5 h-5" strokeWidth={1.5} />
                 </button>
               </div>
-            </div>
+
+              {/* Sender Meta Info */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs">
+                <div>
+                  <span className="text-slate-400 block font-mono text-[10px] uppercase">Email</span>
+                  <a
+                    href={`mailto:${activeMessage.email}`}
+                    className="text-blue-400 hover:underline font-medium break-all"
+                  >
+                    {activeMessage.email}
+                  </a>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-mono text-[10px] uppercase">Phone</span>
+                  <span className="text-white font-mono">{activeMessage.phone || 'Not provided'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-mono text-[10px] uppercase">Company</span>
+                  <span className="text-white">{activeMessage.company || 'Not provided'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-mono text-[10px] uppercase">Project Type</span>
+                  <span className="text-blue-300 font-medium">{activeMessage.projectType}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-400 block font-mono text-[10px] uppercase">Timestamp</span>
+                  <span className="text-slate-300 font-mono">
+                    {new Date(activeMessage.createdAt).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Message Body */}
+              <div className="space-y-2">
+                <span className="text-slate-400 block font-mono text-[10px] uppercase">Client Message</span>
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
+                  {activeMessage.message}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleRead(activeMessage)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors"
+                  >
+                    {activeMessage.read ? <Mail className="w-4 h-4" strokeWidth={1.5} /> : <MailOpen className="w-4 h-4 text-blue-400" strokeWidth={1.5} />}
+                    <span>{activeMessage.read ? 'Mark as Unread' : 'Mark as Read'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDeletingId(activeMessage.id!);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-rose-950/40 text-rose-400 border border-slate-800 hover:border-rose-900/60 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+                    <span>Delete</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`mailto:${activeMessage.email}?subject=RE: Darex Inquiry - ${encodeURIComponent(activeMessage.projectType)}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-md shadow-blue-600/30"
+                  >
+                    <Send className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    <span>Reply to Client</span>
+                  </a>
+                  <button
+                    onClick={() => setActiveMessage(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
-      {deletingId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-md bg-[#0e121a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Delete Submission?</h3>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Are you sure you want to permanently delete this contact inquiry from your Firestore database? This action cannot be undone.
-            </p>
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => setDeletingId(null)}
-                disabled={isDeleting}
-                className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={isDeleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white"
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <span>Yes, Delete</span>
-                )}
-              </button>
-            </div>
+      <AnimatePresence>
+        {deletingId && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-[#0e121a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3 text-rose-400">
+                <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-800/60">
+                  <AlertTriangle className="w-6 h-6" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Delete Inquiry Record?</h3>
+                  <p className="text-xs text-slate-400">This action will remove this lead record permanently.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  onClick={() => setDeletingId(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-600/30"
+                >
+                  {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />}
+                  <span>Confirm Delete</span>
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
     </div>
   );

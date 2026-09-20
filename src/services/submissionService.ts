@@ -144,47 +144,10 @@ export async function getContactSubmissions(): Promise<ContactSubmission[]> {
     combinedMap.set(item.id || `${item.email}_${item.createdAt}`, item);
   });
 
-  const merged = Array.from(combinedMap.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-
-  // If empty, provide 2 realistic starter inquiries for testing
-  if (merged.length === 0) {
-    const defaultSamples: ContactSubmission[] = [
-      {
-        id: 'sub_demo_1',
-        name: 'Dr. Adeleke Balogun',
-        email: 'adeleke@helioshealth.ng',
-        phone: '+234 802 334 9102',
-        company: 'Helios Health Systems',
-        projectType: 'Business Website Solutions',
-        budget: '₦2,500,000 – ₦6,000,000 ($1,800 – $4,500)',
-        timeline: 'Standard (3-4 weeks)',
-        message:
-          'We require a comprehensive corporate website and patient appointment booking interface. We need high availability, HIPAA/NDPR compliance, and seamless mobile responsiveness for doctors and patients across our hospital network.',
-        read: false,
-        createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-        source: 'local',
-      },
-      {
-        id: 'sub_demo_2',
-        name: 'Folashade Adeyemi',
-        email: 'folashade@auraluxury.com',
-        phone: '+234 818 992 4110',
-        company: 'Aura Lifestyle & Fashion',
-        projectType: 'E-commerce Development',
-        budget: '₦800,000 – ₦2,500,000 ($600 – $1,800)',
-        timeline: 'Urgent (1-2 weeks)',
-        message:
-          'We are preparing to launch our new luxury collection next month and need a modern storefront with Paystack/Flutterwave integration, inventory management, and fast mobile checkouts.',
-        read: true,
-        createdAt: new Date(Date.now() - 3600000 * 28).toISOString(),
-        source: 'local',
-      },
-    ];
-    saveLocalSubmissions(defaultSamples);
-    return defaultSamples;
-  }
+  const merged = Array.from(combinedMap.values())
+    // Filter out any previous fake demo entries
+    .filter((item) => !item.id?.startsWith('sub_demo_'))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return merged;
 }
