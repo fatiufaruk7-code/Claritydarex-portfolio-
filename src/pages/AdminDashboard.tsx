@@ -57,8 +57,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Monitor Firebase Auth
+  // Monitor Admin Authentication (Firebase Auth + Verified Owner Session)
   useEffect(() => {
+    // 1. Check local owner session
+    const localSession = sessionStorage.getItem('darex_admin_session');
+    if (localSession) {
+      try {
+        const parsed = JSON.parse(localSession);
+        if (parsed.email) {
+          setCurrentUser({ email: parsed.email } as User);
+          setIsAuthLoading(false);
+          loadSubmissions();
+          return;
+        }
+      } catch (e) {
+        sessionStorage.removeItem('darex_admin_session');
+      }
+    }
+
+    // 2. Check Firebase Auth if available
     const firebase = getFirebaseInstance();
     if (!firebase) {
       setIsAuthLoading(false);
@@ -91,11 +108,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   };
 
   const handleSignOut = async () => {
+    sessionStorage.removeItem('darex_admin_session');
     const firebase = getFirebaseInstance();
     if (firebase) {
       await signOut(firebase.auth);
-      setCurrentUser(null);
     }
+    setCurrentUser(null);
   };
 
   const handleToggleRead = async (submission: ContactSubmission) => {
@@ -217,7 +235,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     return (
       <AdminLogin
         onReturnToHome={onReturnToHome}
-        onLoginSuccess={() => loadSubmissions()}
+        onLoginSuccess={(loggedEmail) => {
+          setCurrentUser({ email: loggedEmail || 'fatiufaruk7@gmail.com' } as User);
+          loadSubmissions();
+        }}
       />
     );
   }

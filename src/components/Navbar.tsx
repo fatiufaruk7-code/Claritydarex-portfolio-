@@ -106,6 +106,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView })
                 Why Darex
               </button>
               <button
+                onClick={() => handleNavClick('faq')}
+                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
+              >
+                FAQ
+              </button>
+              <button
                 onClick={() => handleNavClick('contact')}
                 className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
               >
@@ -200,6 +206,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView })
                 className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
               >
                 Why Darex
+              </button>
+              <button
+                onClick={() => handleNavClick('faq')}
+                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+              >
+                FAQ
               </button>
               <button
                 onClick={() => handleNavClick('contact')}

@@ -6,9 +6,11 @@ import { ProjectsSection } from '../sections/ProjectsSection';
 import { WhyChooseSection } from '../sections/WhyChooseSection';
 import { ProcessSection } from '../sections/ProcessSection';
 import { TestimonialsSection } from '../sections/TestimonialsSection';
+import { FaqSection } from '../sections/FaqSection';
 import { CtaSection } from '../sections/CtaSection';
 import { ContactSection } from '../sections/ContactSection';
 import { ProjectModal } from '../components/ProjectModal';
+import { FloatingWhatsApp } from '../components/FloatingWhatsApp';
 import type { ProjectItem } from '../types';
 
 export const HomePage: React.FC = () => {
@@ -33,7 +35,7 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <main id="main-content" className="w-full">
+    <main id="main-content" className="w-full relative">
       {/* 1. Hero Section */}
       <HeroSection
         onGetStartedClick={() => scrollToSection('contact')}
@@ -58,10 +60,13 @@ export const HomePage: React.FC = () => {
       {/* 7. Testimonials */}
       <TestimonialsSection />
 
-      {/* 8. Call To Action */}
+      {/* 8. Frequently Asked Questions */}
+      <FaqSection onContactClick={() => scrollToSection('contact')} />
+
+      {/* 9. Call To Action */}
       <CtaSection onStartProjectClick={() => scrollToSection('contact')} />
 
-      {/* 9. Contact Section with Firestore Form */}
+      {/* 10. Contact Section with Resilient Persistence */}
       <ContactSection selectedProjectType={selectedProjectType} />
 
       {/* Project Details Modal */}
@@ -70,6 +75,9 @@ export const HomePage: React.FC = () => {
         onClose={() => setSelectedProject(null)}
         onStartSimilarProject={handleStartSimilarProject}
       />
+
+      {/* Floating Instant WhatsApp Lead Connect */}
+      <FloatingWhatsApp />
     </main>
   );
 };

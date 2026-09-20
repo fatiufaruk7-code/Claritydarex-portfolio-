@@ -5,9 +5,12 @@ export interface ContactSubmission {
   phone?: string;
   company?: string;
   projectType: string;
+  budget?: string;
+  timeline?: string;
   message: string;
   read: boolean;
   createdAt: string;
+  source?: 'firestore' | 'local';
 }
 
 export interface ServiceItem {
