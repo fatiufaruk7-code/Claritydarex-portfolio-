@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, ArrowUpRight, ShieldCheck } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   currentView: 'home' | 'admin';
@@ -126,6 +127,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView })
           <div className="hidden md:flex items-center gap-3">
             {currentView === 'home' ? (
               <>
+                <PWAInstallButton variant="header" />
+
                 <button
                   onClick={() => onNavigateToView('admin')}
                   title="Darex Administrator Console"
@@ -222,6 +225,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView })
               </button>
 
               <div className="pt-4 border-t border-slate-800 space-y-2">
+                <PWAInstallButton variant="mobile-nav" />
+
                 <button
                   onClick={() => handleNavClick('contact')}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30"

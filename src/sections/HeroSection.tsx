@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, Layers, Sparkles, CheckCircle } from 'lucide-react';
 import { TechIllustration } from '../components/TechIllustration';
+import { PWAInstallButton } from '../components/PWAInstallButton';
 
 interface HeroSectionProps {
   onGetStartedClick: () => void;
@@ -126,6 +127,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <Layers className="w-4 h-4 text-blue-400" strokeWidth={1.5} />
                 <span>View Our Work</span>
               </motion.button>
+
+              <PWAInstallButton variant="hero" />
             </motion.div>
 
             {/* Trust Highlights */}

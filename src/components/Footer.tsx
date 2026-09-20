@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowUp, Github, Linkedin, Twitter, Dribbble, Shield, Heart } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
 import { BrandLogo } from './BrandLogo';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface FooterProps {
   onNavigateToView: (view: 'home' | 'admin') => void;
@@ -187,7 +188,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
                   {COMPANY_INFO.phoneFormatted} ({COMPANY_INFO.phone})
                 </a>
               </li>
-              <li className="pt-3">
+              <li className="pt-3 flex flex-col gap-2">
                 {/* Discrete Admin Link */}
                 <button
                   onClick={() => onNavigateToView('admin')}
@@ -197,6 +198,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
                   <Shield className="w-3.5 h-3.5" />
                   <span>Admin Portal</span>
                 </button>
+
+                <div>
+                  <PWAInstallButton variant="footer" />
+                </div>
               </li>
             </ul>
           </div>
