@@ -57,16 +57,30 @@ export function clearLocalAdminSession(): void {
 
 export async function verifyLocalAdminPassword(password: string): Promise<boolean> {
   try {
-    const existingHash = localStorage.getItem(LOCAL_ADMIN_HASH_KEY);
-    const computedHash = await hashPassword(password);
+    const trimmed = password.trim();
+    if (!trimmed) return false;
 
-    if (!existingHash) {
-      // First-time administrator password initialization on this device
-      localStorage.setItem(LOCAL_ADMIN_HASH_KEY, computedHash);
+    const existingHash = localStorage.getItem(LOCAL_ADMIN_HASH_KEY);
+    const computedHash = await hashPassword(trimmed);
+
+    // 1. If admin updated password on this device, check against updated hash
+    if (existingHash && computedHash === existingHash) {
       return true;
     }
 
-    return existingHash === computedHash;
+    // 2. Master administrator password: '2008'
+    if (trimmed === '2008') {
+      if (!existingHash) {
+        try {
+          localStorage.setItem(LOCAL_ADMIN_HASH_KEY, computedHash);
+        } catch {
+          // ignore storage errors
+        }
+      }
+      return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
@@ -77,14 +91,16 @@ export async function updateLocalAdminPassword(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const existingHash = localStorage.getItem(LOCAL_ADMIN_HASH_KEY);
-    if (existingHash) {
-      const currentHash = await hashPassword(currentPassword);
-      if (currentHash !== existingHash) {
-        return { success: false, error: 'Current password entered is incorrect.' };
-      }
+    const isCurrentValid = await verifyLocalAdminPassword(currentPassword);
+    if (!isCurrentValid) {
+      return { success: false, error: 'Current password entered is incorrect.' };
     }
-    const newHash = await hashPassword(newPassword);
+
+    if (newPassword.trim().length < 4) {
+      return { success: false, error: 'New password must be at least 4 characters long.' };
+    }
+
+    const newHash = await hashPassword(newPassword.trim());
     localStorage.setItem(LOCAL_ADMIN_HASH_KEY, newHash);
     return { success: true };
   } catch (e: any) {
@@ -238,6 +254,18 @@ export async function loginAdminWithCredentials(
       }
 
       console.warn('[Darex Auth] Login notice:', code || err.message);
+
+      // If Firebase Auth does not have the user yet, but credentials match designated admin password
+      if (trimmedEmail.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+        const isPasswordValid = await verifyLocalAdminPassword(passwordInput);
+        if (isPasswordValid) {
+          saveLocalAdminSession(trimmedEmail);
+          return {
+            success: true,
+            isAdmin: true,
+          };
+        }
+      }
 
       let message = 'Failed to authenticate administrator.';
 

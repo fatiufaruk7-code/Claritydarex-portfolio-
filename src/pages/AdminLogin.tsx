@@ -36,7 +36,7 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginSuccess }) => {
-  const [email, setEmail] = useState(DESIGNATED_ADMIN_EMAIL);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +44,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
 
   // Forgot password modal / state
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-  const [resetEmail, setResetEmail] = useState(DESIGNATED_ADMIN_EMAIL);
+  const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsResetting] = useState(false);
   const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -269,7 +269,7 @@ VITE_FIREBASE_APP_ID=${appIdInput || 'YOUR_APP_ID'}
             Darex Management Portal
           </h2>
           <p className="text-xs text-slate-400 max-w-xs mx-auto">
-            Authorized administrator console for Faruk Fatiu.
+            Restricted Access • Authorized Administrators Only
           </p>
         </div>
 
@@ -334,7 +334,7 @@ VITE_FIREBASE_APP_ID=${appIdInput || 'YOUR_APP_ID'}
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="fatiufaruk7@gmail.com"
+                  placeholder="Enter administrator email"
                   autoComplete="email"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
@@ -408,11 +408,8 @@ VITE_FIREBASE_APP_ID=${appIdInput || 'YOUR_APP_ID'}
             </div>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-slate-800/60 text-center text-[11px] text-slate-400">
-            Designated Administrator: <span className="text-slate-200 font-mono">fatiufaruk7@gmail.com</span>
-            <div className="mt-1 text-slate-500">
-              Only authorized administrator accounts are permitted access.
-            </div>
+          <div className="mt-6 pt-4 border-t border-slate-800/60 text-center text-[11px] text-slate-500 leading-relaxed">
+            Restricted management console. All authentication sessions are encrypted and logged.
           </div>
         </div>
       </motion.div>
@@ -438,7 +435,7 @@ VITE_FIREBASE_APP_ID=${appIdInput || 'YOUR_APP_ID'}
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white">Reset Admin Password</h3>
-                    <p className="text-[11px] text-slate-400">Send a recovery link via Firebase Authentication</p>
+                    <p className="text-[11px] text-slate-400">Send a recovery link or reset credentials</p>
                   </div>
                 </div>
                 <button
@@ -477,7 +474,7 @@ VITE_FIREBASE_APP_ID=${appIdInput || 'YOUR_APP_ID'}
                     required
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="fatiufaruk7@gmail.com"
+                    placeholder="Enter administrator email"
                     className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
