@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import {
   Shield,
   Search,
@@ -27,16 +27,20 @@ import {
   EyeOff,
   Sparkles,
   ShieldCheck,
-  RotateCcw,
+  ShieldAlert,
+  Globe,
+  Instagram,
+  ExternalLink,
+  Copy,
 } from 'lucide-react';
 import { AdminLogin } from './AdminLogin';
 import { getFirebaseInstance } from '../firebase/config';
+import { COMPANY_INFO } from '../data/company';
 import {
-  getActiveAdminSession,
+  checkUserIsAdmin,
   logoutAdmin,
-  updateAdminPassword,
-  resetAdminPasswordToDefault,
-  getStoredAdminPassword,
+  updateAdminFirebasePassword,
+  DESIGNATED_ADMIN_EMAIL,
 } from '../services/adminAuthService';
 import {
   getContactSubmissions,
@@ -50,8 +54,10 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }) => {
-  const [currentUser, setCurrentUser] = useState<{ email: string; name?: string } | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authStatus, setAuthStatus] = useState<
+    'loading' | 'authorized' | 'unauthorized' | 'unauthenticated'
+  >('loading');
   
   // Data states
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
@@ -72,38 +78,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
 
   // Change password modal
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isSiteSettingsOpen, setIsSiteSettingsOpen] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [currentPasswordInput, setCurrentPasswordInput] = useState('');
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [passwordStatusMsg, setPasswordStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showPasswordText, setShowPasswordText] = useState(false);
 
+  const handleCopyText = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
   // Monitor Admin Authentication
   useEffect(() => {
-    // 1. Check local authorized admin session
-    const activeSession = getActiveAdminSession();
-    if (activeSession) {
-      setCurrentUser({ email: activeSession.email, name: activeSession.name });
-      setIsAuthLoading(false);
-      loadSubmissions();
-      return;
-    }
-
-    // 2. Check Firebase Auth if available
     const firebase = getFirebaseInstance();
     if (!firebase) {
-      setIsAuthLoading(false);
+      setAuthStatus('unauthenticated');
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(firebase.auth, (user) => {
-      if (user && user.email?.toLowerCase() === 'fatiufaruk7@gmail.com') {
-        setCurrentUser({ email: user.email, name: 'Faruk Fatiu' });
-        loadSubmissions();
-      } else {
+    const unsubscribe = onAuthStateChanged(firebase.auth, async (user) => {
+      if (!user) {
         setCurrentUser(null);
+        setAuthStatus('unauthenticated');
+        return;
       }
-      setIsAuthLoading(false);
+
+      setCurrentUser(user);
+      try {
+        const isAuthorized = await checkUserIsAdmin(user);
+        if (isAuthorized) {
+          setAuthStatus('authorized');
+          loadSubmissions();
+        } else {
+          setAuthStatus('unauthorized');
+        }
+      } catch (err) {
+        console.error('Error checking admin authorization:', err);
+        setAuthStatus('unauthorized');
+      }
     });
 
     return () => unsubscribe();
@@ -124,12 +141,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   };
 
   const handleSignOut = async () => {
-    logoutAdmin();
-    const firebase = getFirebaseInstance();
-    if (firebase) {
-      await signOut(firebase.auth);
-    }
+    await logoutAdmin();
     setCurrentUser(null);
+    setAuthStatus('unauthenticated');
   };
 
   const handleToggleRead = async (submission: ContactSubmission) => {
@@ -166,7 +180,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     }
   };
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordStatusMsg(null);
 
@@ -175,36 +189,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
       return;
     }
 
-    if (newPasswordInput.length < 4) {
-      setPasswordStatusMsg({ type: 'error', text: 'New password must be at least 4 characters.' });
+    if (newPasswordInput.length < 6) {
+      setPasswordStatusMsg({ type: 'error', text: 'New password must be at least 6 characters.' });
       return;
     }
 
-    const res = updateAdminPassword(currentPasswordInput, newPasswordInput);
-    if (res.success) {
+    setIsUpdatingPassword(true);
+    try {
+      const res = await updateAdminFirebasePassword(currentPasswordInput, newPasswordInput);
+      if (res.success) {
+        setPasswordStatusMsg({
+          type: 'success',
+          text: 'Administrator password successfully updated in Firebase Authentication!',
+        });
+        setCurrentPasswordInput('');
+        setNewPasswordInput('');
+        setConfirmPasswordInput('');
+        setTimeout(() => {
+          setIsPasswordModalOpen(false);
+          setPasswordStatusMsg(null);
+        }, 2000);
+      } else {
+        setPasswordStatusMsg({ type: 'error', text: res.error || 'Failed to update password.' });
+      }
+    } catch (err: unknown) {
       setPasswordStatusMsg({
-        type: 'success',
-        text: 'Password successfully updated! Your new credentials are now active.',
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to update password.',
       });
-      setCurrentPasswordInput('');
-      setNewPasswordInput('');
-      setConfirmPasswordInput('');
-      setTimeout(() => {
-        setIsPasswordModalOpen(false);
-        setPasswordStatusMsg(null);
-      }, 2000);
-    } else {
-      setPasswordStatusMsg({ type: 'error', text: res.error || 'Failed to update password.' });
-    }
-  };
-
-  const handleResetPassword = () => {
-    if (window.confirm('Reset password to initial default (12345)?')) {
-      resetAdminPasswordToDefault();
-      setPasswordStatusMsg({
-        type: 'success',
-        text: 'Password reset to default (12345).',
-      });
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -273,31 +287,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     [submissions]
   );
 
-  if (isAuthLoading) {
+  if (authStatus === 'loading') {
     return (
-      <div className="min-h-screen bg-[#07090e] flex items-center justify-center">
+      <div className="min-h-screen bg-[#07090e] flex items-center justify-center p-4">
         <motion.div
-          animate={{ scale: [0.95, 1.05, 0.95] }}
+          animate={{ scale: [0.98, 1.02, 0.98] }}
           transition={{ duration: 1.5, repeat: Infinity }}
-          className="flex flex-col items-center gap-3 text-slate-400"
+          className="flex flex-col items-center gap-3 text-slate-400 text-center"
         >
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-          <span className="text-sm font-mono">Authenticating Darex Security Layer...</span>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" strokeWidth={1.5} />
+          <span className="text-sm font-semibold text-white">Authenticating Darex Security Layer...</span>
+          <span className="text-xs text-slate-500">Verifying administrator credentials and permissions</span>
         </motion.div>
       </div>
     );
   }
 
   // If user is not signed in, show AdminLogin
-  if (!currentUser) {
+  if (authStatus === 'unauthenticated' || !currentUser) {
     return (
       <AdminLogin
         onReturnToHome={onReturnToHome}
-        onLoginSuccess={(loggedEmail) => {
-          setCurrentUser({ email: loggedEmail || 'fatiufaruk7@gmail.com', name: 'Faruk Fatiu' });
-          loadSubmissions();
+        onLoginSuccess={async () => {
+          const firebase = getFirebaseInstance();
+          if (firebase?.auth.currentUser) {
+            const isAuth = await checkUserIsAdmin(firebase.auth.currentUser);
+            if (isAuth) {
+              setCurrentUser(firebase.auth.currentUser);
+              setAuthStatus('authorized');
+              loadSubmissions();
+            } else {
+              setAuthStatus('unauthorized');
+            }
+          }
         }}
       />
+    );
+  }
+
+  // If user is signed in but not an authorized administrator:
+  if (authStatus === 'unauthorized') {
+    return (
+      <div className="min-h-screen bg-[#07090e] flex flex-col items-center justify-center p-4 selection:bg-rose-600 selection:text-white">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="w-full max-w-md bg-[#0e121a] border border-rose-900/50 rounded-2xl p-6 sm:p-8 shadow-2xl text-center space-y-5"
+        >
+          <div className="inline-flex p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+            <ShieldAlert className="w-8 h-8" strokeWidth={1.5} />
+          </div>
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-950/60 border border-rose-800/60 text-[11px] font-mono text-rose-300">
+              <span>Security Restriction</span>
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight">Access Denied</h2>
+            <p className="text-sm font-medium text-rose-300 leading-snug">
+              Access denied. You are not authorized to access the Darex Admin Portal.
+            </p>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed pt-1">
+              Signed in as <span className="text-slate-200 font-mono font-medium">{currentUser?.email || 'authenticated user'}</span>. This account does not possess administrator privileges or custom claims required for the Darex Management Console.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+            <button
+              onClick={handleSignOut}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
+            >
+              Sign Out
+            </button>
+            <button
+              onClick={onReturnToHome}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-all shadow-md shadow-blue-600/30"
+            >
+              Return to Public Website
+            </button>
+          </div>
+        </motion.div>
+      </div>
     );
   }
 
@@ -341,13 +408,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                 Faruk Fatiu
               </h1>
               <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                {currentUser.email}
+                {currentUser?.email || DESIGNATED_ADMIN_EMAIL}
               </p>
             </div>
           </div>
 
           {/* Action Toolbar */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setIsSiteSettingsOpen(true)}
+              id="admin-site-settings-btn"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-emerald-400 hover:text-white transition-all shadow-sm active:scale-[0.98]"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-400" strokeWidth={1.5} />
+              <span>Site Settings</span>
+            </button>
+
             <button
               onClick={() => {
                 setIsPasswordModalOpen(true);
@@ -717,7 +793,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                       required
                       value={currentPasswordInput}
                       onChange={(e) => setCurrentPasswordInput(e.target.value)}
-                      placeholder="Initial default is 12345"
+                      placeholder="Enter current password"
                       className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
                     />
                   </div>
@@ -733,7 +809,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                     required
                     value={newPasswordInput}
                     onChange={(e) => setNewPasswordInput(e.target.value)}
-                    placeholder="Enter new password (min 4 characters)"
+                    placeholder="Enter new password (min 6 characters)"
                     className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -763,15 +839,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                     />
                     <span>Show password text</span>
                   </label>
-
-                  <button
-                    type="button"
-                    onClick={handleResetPassword}
-                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-amber-400 transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3" strokeWidth={1.5} />
-                    <span>Reset to 12345</span>
-                  </button>
                 </div>
 
                 <div className="pt-2 flex items-center justify-end gap-2.5">
@@ -784,12 +851,151 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/30"
+                    disabled={isUpdatingPassword}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-60 shadow-md shadow-blue-600/30"
                   >
-                    Update Password
+                    {isUpdatingPassword && <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />}
+                    <span>Update Password</span>
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Site Settings & Online Presence Modal */}
+      <AnimatePresence>
+        {isSiteSettingsOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-xl bg-[#0e121a] border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6"
+            >
+              <div className="flex items-start justify-between pb-4 border-b border-slate-800">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-semibold">
+                    <Globe className="w-3 h-3" />
+                    <span>SYSTEM SETTINGS</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mt-1.5">
+                    Site Settings & Online Presence
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Active domains, official production platform, and corporate social channels.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsSiteSettingsOpen(false)}
+                  className="p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" strokeWidth={1.5} />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                {/* Official Website */}
+                <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm">
+                      <Globe className="w-4 h-4 text-emerald-400" strokeWidth={1.5} />
+                      <span>Darex Website</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">
+                      Primary Platform
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-950/80 border border-slate-800/80 font-mono text-slate-300 break-all text-xs">
+                    <span>{COMPANY_INFO.officialWebsite}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleCopyText('website', COMPANY_INFO.officialWebsite)}
+                        className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                        title="Copy URL"
+                      >
+                        {copiedKey === 'website' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                      <a
+                        href={COMPANY_INFO.officialWebsite}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 transition-all text-[11px]"
+                      >
+                        <span>Visit</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instagram Profile */}
+                <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm">
+                      <Instagram className="w-4 h-4 text-pink-400" strokeWidth={1.5} />
+                      <span>Instagram Profile</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 font-mono text-[10px]">
+                      @farukfatiu
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-950/80 border border-slate-800/80 font-mono text-slate-300 break-all text-xs">
+                    <span>{COMPANY_INFO.socialLinks.instagram}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleCopyText('instagram', COMPANY_INFO.socialLinks.instagram)}
+                        className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                        title="Copy URL"
+                      >
+                        {copiedKey === 'instagram' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                      <a
+                        href={COMPANY_INFO.socialLinks.instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-pink-600/20 hover:bg-pink-600 text-pink-300 hover:text-white border border-pink-500/30 transition-all text-[11px]"
+                      >
+                        <span>Open</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Corporate Meta */}
+                <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                  <div>
+                    <span className="text-slate-500 text-[10px] uppercase font-mono block">Support & Inquiries</span>
+                    <a href={`mailto:${COMPANY_INFO.email}`} className="text-slate-300 hover:text-blue-400 font-medium">
+                      {COMPANY_INFO.email}
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[10px] uppercase font-mono block">Direct Phone</span>
+                    <span className="text-slate-300 font-mono">
+                      {COMPANY_INFO.phoneFormatted}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+                <span className="text-xs text-slate-400">
+                  Linked across Public Site Header, Footer, and Contact sections.
+                </span>
+                <button
+                  onClick={() => setIsSiteSettingsOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+                >
+                  Done
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

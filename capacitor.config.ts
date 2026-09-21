@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.darex.company',
   appName: 'Darex',
   webDir: 'dist',
-  bundledWebRuntime: false,
   server: {
     androidScheme: 'https',
     cleartext: false,

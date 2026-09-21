@@ -12,6 +12,8 @@ import {
   Linkedin,
   Twitter,
   Dribbble,
+  Instagram,
+  Globe,
   MessageSquare,
   ShieldCheck,
   ExternalLink,
@@ -278,6 +280,30 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                   </div>
                 </div>
               </div>
+
+              {/* Official Darex Website Card */}
+              <div className="group p-5 rounded-2xl bg-[#0e121a] border border-slate-800/90 hover:border-slate-700 transition-all shadow-md hover:shadow-xl hover:shadow-black/50">
+                <div className="flex items-start gap-4">
+                  <ClassicIcon icon={Globe} size="md" variant="sapphire" strokeWidth={1.35} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+                      Official Web Platform
+                    </div>
+                    <a
+                      href={COMPANY_INFO.officialWebsite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm sm:text-base font-semibold text-white group-hover:text-blue-400 transition-colors mt-0.5"
+                    >
+                      <span>Visit Darex</span>
+                      <ExternalLink className="w-3.5 h-3.5 opacity-70" strokeWidth={1.5} />
+                    </a>
+                    <div className="text-xs text-slate-400 mt-1">
+                      claritydarex.vercel.app &mdash; Live corporate deployment and portfolio
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Direct Response Guarantee */}
@@ -300,7 +326,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                 <a
                   href={COMPANY_INFO.socialLinks.github}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   aria-label="Darex on GitHub"
                   className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
@@ -309,7 +335,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                 <a
                   href={COMPANY_INFO.socialLinks.linkedin}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   aria-label="Darex on LinkedIn"
                   className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
@@ -318,20 +344,53 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                 <a
                   href={COMPANY_INFO.socialLinks.twitter}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   aria-label="Darex on X/Twitter"
                   className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
                   <Twitter className="w-4 h-4" strokeWidth={1.4} />
                 </a>
                 <a
+                  href={COMPANY_INFO.socialLinks.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Faruk Fatiu on Instagram"
+                  title="Instagram Profile"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <Instagram className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+                <a
+                  href={COMPANY_INFO.officialWebsite}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Darex Website"
+                  title="Darex Website"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <Globe className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+                <a
                   href={COMPANY_INFO.socialLinks.dribbble}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   aria-label="Darex on Dribbble"
                   className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
                 >
                   <Dribbble className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+              </div>
+              <div className="mt-3">
+                <a
+                  href={COMPANY_INFO.officialWebsite}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                >
+                  <Globe className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <span>Darex Website</span>
+                  <span className="text-slate-500 text-[11px]">&mdash; claritydarex.vercel.app</span>
+                  <ExternalLink className="w-3 h-3 opacity-70" strokeWidth={1.5} />
                 </a>
               </div>
             </div>

@@ -36,9 +36,19 @@
           "maxLength": 80,
           "description": "Selected service or project category"
         },
+        "budget": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Selected budget range"
+        },
+        "timeline": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Selected project timeline"
+        },
         "message": {
           "type": "string",
-          "minLength": 10,
+          "minLength": 5,
           "maxLength": 3000,
           "description": "Project details or inquiry message"
         },
@@ -49,16 +59,182 @@
         "createdAt": {
           "type": "string",
           "format": "date-time",
-          "description": "Server timestamp of when submission was created"
+          "description": "Timestamp of when submission was created"
+        },
+        "source": {
+          "type": "string",
+          "description": "Origin of record"
         }
       },
       "required": ["name", "email", "message", "read", "createdAt"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Portfolio showcase project item managed by Darex administrators.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "shortDescription": {
+          "type": "string"
+        },
+        "fullDescription": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "technologies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "liveUrl": {
+          "type": "string"
+        },
+        "client": {
+          "type": "string"
+        },
+        "year": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["title", "category", "shortDescription"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Digital service offered by Darex.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "iconName": {
+          "type": "string"
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tag": {
+          "type": "string"
+        }
+      },
+      "required": ["title", "description", "iconName"]
+    },
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Client testimonial and review.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "clientName": {
+          "type": "string"
+        },
+        "clientRole": {
+          "type": "string"
+        },
+        "company": {
+          "type": "string"
+        },
+        "avatarText": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "number"
+        },
+        "projectDelivered": {
+          "type": "string"
+        }
+      },
+      "required": ["clientName", "quote", "rating"]
+    },
+    "SiteSettings": {
+      "title": "Site Settings",
+      "description": "General site configuration, social links, and contact information.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "socialLinks": {
+          "type": "object"
+        }
+      },
+      "required": ["email"]
+    },
+    "AdminProfile": {
+      "title": "Admin Profile",
+      "description": "Record of authorized administrators with portal privileges.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "isAdmin": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["email", "isAdmin"]
     }
   },
   "firestore": {
     "/submissions/{submissionId}": {
       "schema": "ContactSubmission",
-      "description": "Collection of all public contact form inquiries received by Darex."
+      "description": "Public contact form inquiries. Read/write strictly restricted to authorized administrators except create."
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Portfolio projects. Publicly readable, writeable only by authorized administrators."
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Company services. Publicly readable, writeable only by authorized administrators."
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": "Testimonial",
+      "description": "Client testimonials. Publicly readable, writeable only by authorized administrators."
+    },
+    "/settings/{settingId}": {
+      "schema": "SiteSettings",
+      "description": "Site configurations. Publicly readable, writeable only by authorized administrators."
+    },
+    "/admins/{adminId}": {
+      "schema": "AdminProfile",
+      "description": "Authorized administrator registry. Strictly accessible only by authorized administrators."
     }
   }
 }

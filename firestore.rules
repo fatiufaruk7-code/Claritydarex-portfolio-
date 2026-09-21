@@ -16,36 +16,84 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Strict Administrator Authorization:
+    // Requires either:
+    // 1. Firebase Auth custom claim `admin == true` or `role == 'admin'`
+    // 2. Verified admin record in /admins/{uid}
+    // 3. Designated primary administrator email (fatiufaruk7@gmail.com) with verified email
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.role == 'admin' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'fatiufaruk7@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
     function isValidSubmission(data) {
       return data.keys().hasAll(['name', 'email', 'message', 'read', 'createdAt']) &&
-             data.keys().hasOnly(['name', 'email', 'phone', 'company', 'projectType', 'message', 'read', 'createdAt']) &&
+             data.keys().hasOnly(['name', 'email', 'phone', 'company', 'projectType', 'budget', 'timeline', 'message', 'read', 'createdAt', 'source']) &&
              data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
              data.email is string && data.email.size() >= 5 && data.email.size() <= 150 &&
              data.message is string && data.message.size() >= 5 && data.message.size() <= 3000 &&
              data.read is bool &&
              (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
              (!('company' in data) || (data.company is string && data.company.size() <= 120)) &&
-             (!('projectType' in data) || (data.projectType is string && data.projectType.size() <= 80));
+             (!('projectType' in data) || (data.projectType is string && data.projectType.size() <= 80)) &&
+             (!('budget' in data) || (data.budget is string && data.budget.size() <= 80)) &&
+             (!('timeline' in data) || (data.timeline is string && data.timeline.size() <= 80)) &&
+             (!('source' in data) || (data.source is string && data.source.size() <= 30));
     }
 
-    // Default deny
+    // Default deny all access
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Submissions collection
-    match /submissions/{submissionId} {
-      // Public visitors can submit contact forms with strict payload validation
-      allow create: if isValidSubmission(incoming()) && incoming().read == false;
+    // Administrators registry:
+    // Strictly restricted to authorized administrators
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
 
-      // Only authenticated administrators can read, list, delete, or mark submissions as read/unread
-      allow read: if isSignedIn();
-      
-      allow update: if isSignedIn() &&
+    // Contact Submissions collection:
+    // Public visitors can submit contact forms with schema validation
+    // ONLY authorized administrators can read, list, update, or delete submissions
+    match /submissions/{submissionId} {
+      allow create: if isValidSubmission(incoming()) && incoming().read == false;
+      allow read: if isAdmin();
+      allow update: if isAdmin() &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['read']) &&
                     incoming().read is bool;
+      allow delete: if isAdmin();
+    }
 
-      allow delete: if isSignedIn();
+    // Projects collection:
+    // Public can view showcase projects; ONLY authorized administrators can modify or delete
+    match /projects/{projectId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Services collection:
+    // Public can view services; ONLY authorized administrators can modify or delete
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Testimonials collection:
+    // Public can view client reviews; ONLY authorized administrators can modify or delete
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Site settings collection:
+    // Public can view site settings; ONLY authorized administrators can modify or delete
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
   }
 }

@@ -9,7 +9,10 @@ export const COMPANY_INFO = {
   phone: '08137941486',
   phoneFormatted: '+234 813 794 1486',
   location: 'Lagos, Nigeria (Serving Clients Worldwide)',
+  officialWebsite: 'https://claritydarex.vercel.app/',
   socialLinks: {
+    instagram: 'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5',
+    website: 'https://claritydarex.vercel.app/',
     github: 'https://github.com/darex',
     linkedin: 'https://linkedin.com/company/darex',
     twitter: 'https://twitter.com/darexhq',

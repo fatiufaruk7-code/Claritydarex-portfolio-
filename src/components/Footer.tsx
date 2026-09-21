@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUp, Github, Linkedin, Twitter, Dribbble, Shield, Heart } from 'lucide-react';
+import { ArrowUp, Github, Linkedin, Twitter, Dribbble, Instagram, Globe, ExternalLink, Shield, Heart } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
 import { BrandLogo } from './BrandLogo';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -47,16 +47,35 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <a
                 href={COMPANY_INFO.socialLinks.twitter}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label="Twitter"
                 className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
               >
                 <Twitter className="w-4 h-4" strokeWidth={1.4} />
               </a>
               <a
+                href={COMPANY_INFO.socialLinks.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram Profile"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
+              >
+                <Instagram className="w-4 h-4" strokeWidth={1.4} />
+              </a>
+              <a
+                href={COMPANY_INFO.officialWebsite}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Darex Website"
+                title="Visit Darex"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
+              >
+                <Globe className="w-4 h-4" strokeWidth={1.4} />
+              </a>
+              <a
                 href={COMPANY_INFO.socialLinks.dribbble}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label="Dribbble"
                 className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
               >
@@ -186,6 +205,18 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <a href={`tel:${COMPANY_INFO.phone}`} className="font-mono hover:text-white transition-colors">
                   {COMPANY_INFO.phoneFormatted} ({COMPANY_INFO.phone})
+                </a>
+              </li>
+              <li className="pt-0.5">
+                <a
+                  href={COMPANY_INFO.officialWebsite}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <Globe className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <span>Darex Website</span>
+                  <ExternalLink className="w-3 h-3 opacity-70" strokeWidth={1.5} />
                 </a>
               </li>
               <li className="pt-3 flex flex-col gap-2">

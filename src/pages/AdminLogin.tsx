@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Lock,
   Mail,
@@ -11,11 +11,14 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  Sparkles,
+  HelpCircle,
+  X,
 } from 'lucide-react';
-import { authenticateAdmin } from '../services/adminAuthService';
-import { getFirebaseInstance } from '../firebase/config';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  loginAdminWithCredentials,
+  sendAdminPasswordReset,
+  DESIGNATED_ADMIN_EMAIL,
+} from '../services/adminAuthService';
 
 interface AdminLoginProps {
   onReturnToHome: () => void;
@@ -23,11 +26,17 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginSuccess }) => {
-  const [email, setEmail] = useState('fatiufaruk7@gmail.com');
+  const [email, setEmail] = useState(DESIGNATED_ADMIN_EMAIL);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Forgot password modal / state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState(DESIGNATED_ADMIN_EMAIL);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,42 +55,55 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
 
     setIsLoading(true);
 
-    // 1. Try local verified admin credential authentication (configured for fatiufaruk7@gmail.com + 12345)
-    const localResult = authenticateAdmin(trimmedEmail, password);
-    if (localResult.success) {
-      setTimeout(() => {
-        setIsLoading(false);
+    try {
+      const result = await loginAdminWithCredentials(trimmedEmail, password);
+      if (result.success) {
         onLoginSuccess(trimmedEmail);
-      }, 350);
-      return;
-    }
-
-    // 2. Also attempt Firebase Auth if configured
-    const firebase = getFirebaseInstance();
-    if (firebase) {
-      try {
-        await signInWithEmailAndPassword(firebase.auth, trimmedEmail, password);
-        setIsLoading(false);
-        onLoginSuccess(trimmedEmail);
-        return;
-      } catch {
-        // Fall back to local error
+      } else {
+        setAuthError(
+          result.error ||
+            'Authentication failed. Please verify your credentials and administrator privileges.'
+        );
       }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred during login.';
+      setAuthError(msg);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
-    setAuthError(localResult.error || 'Authentication failed. Please verify your credentials.');
   };
 
-  const handleUseDefaultCredentials = () => {
-    setEmail('fatiufaruk7@gmail.com');
-    setPassword('12345');
-    setAuthError(null);
+  const handlePasswordResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetStatus(null);
+    setIsResetting(true);
+
+    try {
+      const res = await sendAdminPasswordReset(resetEmail);
+      if (res.success) {
+        setResetStatus({
+          type: 'success',
+          text: 'Password recovery email dispatched. Please check your inbox to configure your private password.',
+        });
+      } else {
+        setResetStatus({
+          type: 'error',
+          text: res.error || 'Failed to send recovery email. Please check the email address.',
+        });
+      }
+    } catch (err: unknown) {
+      setResetStatus({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to dispatch reset email.',
+      });
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#07090e] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative selection:bg-blue-600 selection:text-white overflow-hidden">
-      {/* Dynamic Animated Ambient Glow */}
+      {/* Animated Ambient Glow */}
       <motion.div
         animate={{
           scale: [1, 1.15, 1],
@@ -95,7 +117,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
         className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/20 rounded-full blur-[150px] pointer-events-none"
       />
 
-      {/* Top Back link */}
+      {/* Top Return link */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -104,6 +126,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
       >
         <button
           onClick={onReturnToHome}
+          id="admin-return-home-link"
           className="inline-flex items-center gap-2 text-xs font-mono text-slate-400 hover:text-white transition-colors group"
         >
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" strokeWidth={1.5} />
@@ -138,16 +161,16 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
 
         {/* Card Frame */}
         <div className="bg-[#0e121a] border border-slate-800/90 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/80 relative backdrop-blur">
-          
           {authError && (
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
+              id="admin-auth-error-alert"
               className="mb-6 p-3.5 rounded-xl bg-rose-950/60 border border-rose-800/60 flex items-start gap-2.5 text-rose-200 text-xs"
             >
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" strokeWidth={1.5} />
               <div className="flex-1 leading-relaxed">
-                <span className="font-semibold text-white">Verification Notice:</span> {authError}
+                <span className="font-semibold text-white">Access Notice:</span> {authError}
               </div>
             </motion.div>
           )}
@@ -168,6 +191,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="fatiufaruk7@gmail.com"
+                  autoComplete="email"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
               </div>
@@ -178,9 +202,16 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
                 <label className="block text-xs font-semibold text-slate-300" htmlFor="admin-password">
                   Password
                 </label>
-                <span className="text-[11px] font-mono text-slate-400">
-                  Initial: <span className="text-blue-400">12345</span>
-                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetModalOpen(true);
+                    setResetStatus(null);
+                  }}
+                  className="text-[11px] font-mono text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                >
+                  Forgot Password?
+                </button>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -193,6 +224,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter administrator password"
+                  autoComplete="current-password"
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
                 <button
@@ -232,30 +264,102 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onReturnToHome, onLoginS
             </div>
           </form>
 
-          {/* Quick-fill helper pill */}
-          <div className="mt-5 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0" strokeWidth={1.5} />
-              <span className="text-[11px]">Default passcode is <strong className="text-slate-200">12345</strong></span>
-            </div>
-            <button
-              type="button"
-              onClick={handleUseDefaultCredentials}
-              className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 underline underline-offset-2"
-            >
-              Auto-fill
-            </button>
-          </div>
-
-          <div className="mt-5 pt-4 border-t border-slate-800/60 text-center text-[11px] text-slate-400">
-            Assigned Administrator: <span className="text-slate-200 font-mono">fatiufaruk7@gmail.com</span>
-            <div className="mt-1 text-slate-400">
-              You can change this password anytime in the dashboard settings.
+          <div className="mt-6 pt-4 border-t border-slate-800/60 text-center text-[11px] text-slate-400">
+            Designated Administrator: <span className="text-slate-200 font-mono">fatiufaruk7@gmail.com</span>
+            <div className="mt-1 text-slate-500">
+              Only authorized administrator accounts are permitted access.
             </div>
           </div>
         </div>
-
       </motion.div>
+
+      {/* Password Reset Modal */}
+      <AnimatePresence>
+        {isResetModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-[#0e121a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-start justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400">
+                    <HelpCircle className="w-4 h-4" strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Reset Admin Password</h3>
+                    <p className="text-[11px] text-slate-400">Send a recovery link via Firebase Authentication</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsResetModalOpen(false)}
+                  className="p-1 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+              </div>
+
+              {resetStatus && (
+                <div
+                  className={`p-3 rounded-xl text-xs flex items-start gap-2 ${
+                    resetStatus.type === 'success'
+                      ? 'bg-emerald-950/60 border border-emerald-800/60 text-emerald-200'
+                      : 'bg-rose-950/60 border border-rose-800/60 text-rose-200'
+                  }`}
+                >
+                  {resetStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" strokeWidth={1.5} />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" strokeWidth={1.5} />
+                  )}
+                  <span>{resetStatus.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handlePasswordResetSubmit} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1" htmlFor="reset-email">
+                    Administrator Email Address
+                  </label>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    required
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="fatiufaruk7@gmail.com"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsResetModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isResetting}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-all shadow-md shadow-blue-600/30"
+                  >
+                    {isResetting && <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />}
+                    <span>Send Reset Email</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
