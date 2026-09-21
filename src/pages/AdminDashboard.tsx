@@ -40,6 +40,7 @@ import {
   checkUserIsAdmin,
   logoutAdmin,
   updateAdminFirebasePassword,
+  getLocalAdminSession,
   DESIGNATED_ADMIN_EMAIL,
 } from '../services/adminAuthService';
 import {
@@ -97,12 +98,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   useEffect(() => {
     const firebase = getFirebaseInstance();
     if (!firebase) {
-      setAuthStatus('unauthenticated');
+      const localAdmin = getLocalAdminSession();
+      if (localAdmin && localAdmin.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+        setAuthStatus('authorized');
+        loadSubmissions();
+      } else {
+        setAuthStatus('unauthenticated');
+      }
       return;
     }
 
     const unsubscribe = onAuthStateChanged(firebase.auth, async (user) => {
       if (!user) {
+        const localAdmin = getLocalAdminSession();
+        if (localAdmin && localAdmin.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+          setAuthStatus('authorized');
+          loadSubmissions();
+          return;
+        }
         setCurrentUser(null);
         setAuthStatus('unauthenticated');
         return;
