@@ -576,6 +576,16 @@ VITE_FIREBASE_APP_ID=${appIdInput || 'YOUR_APP_ID'}
                 )}
               </div>
 
+              {/* Console Tip */}
+              <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-300 leading-relaxed">
+                <span className="font-semibold text-white">Firebase Console Tip:</span> If you see{' '}
+                <code className="font-mono bg-blue-900/50 px-1 py-0.5 rounded text-white text-[10px]">
+                  auth/configuration-not-found
+                </code>
+                , visit your Firebase Console → <strong>Authentication</strong> → <strong>Sign-in method</strong>, enable{' '}
+                <strong>Email/Password</strong>, and click <strong>Save</strong>. In the meantime, Local Administrator Mode keeps your portal accessible.
+              </div>
+
               {configSaveMsg && (
                 <div
                   className={`p-3 rounded-xl text-xs flex items-start gap-2 ${

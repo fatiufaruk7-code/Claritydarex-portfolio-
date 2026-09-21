@@ -199,9 +199,47 @@ export async function loginAdminWithCredentials(
         isAdmin: true,
       };
     } catch (err: any) {
-      console.error('[Darex Auth] Login error:', err);
+      const code = err?.code || '';
+      const isConfigIssue =
+        code === 'auth/configuration-not-found' ||
+        code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('configuration-not-found') ||
+        err?.message?.includes('operation-not-allowed');
+
+      // If Firebase Authentication has not been activated/enabled in the Firebase Console
+      if (isConfigIssue) {
+        console.info(
+          '[Darex Auth] Firebase Auth Email/Password provider is not yet enabled in Firebase Console. Using local administrator mode.'
+        );
+
+        if (trimmedEmail.toLowerCase() !== DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+          return {
+            success: false,
+            error: 'Access denied. You are not authorized to access the Darex Admin Portal.',
+            errorCode: 'auth/not-authorized',
+          };
+        }
+
+        const isPasswordValid = await verifyLocalAdminPassword(passwordInput);
+        if (!isPasswordValid) {
+          return {
+            success: false,
+            error: 'Invalid email or password. Please verify your administrator credentials.',
+            errorCode: 'auth/invalid-credential',
+          };
+        }
+
+        saveLocalAdminSession(trimmedEmail);
+
+        return {
+          success: true,
+          isAdmin: true,
+        };
+      }
+
+      console.warn('[Darex Auth] Login notice:', code || err.message);
+
       let message = 'Failed to authenticate administrator.';
-      const code = err.code || '';
 
       if (
         code === 'auth/invalid-credential' ||
@@ -274,7 +312,26 @@ export async function sendAdminPasswordReset(
       await sendPasswordResetEmail(firebase.auth, trimmedEmail);
       return { success: true };
     } catch (err: any) {
-      console.error('[Darex Auth] Password reset error:', err);
+      const code = err?.code || '';
+      const isConfigIssue =
+        code === 'auth/configuration-not-found' ||
+        code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('configuration-not-found') ||
+        err?.message?.includes('operation-not-allowed');
+
+      if (isConfigIssue) {
+        if (trimmedEmail.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+          try {
+            localStorage.removeItem('darex_admin_p_hash');
+            return { success: true };
+          } catch (e: any) {
+            return { success: false, error: e?.message || 'Failed to reset device credentials.' };
+          }
+        }
+      }
+
+      console.warn('[Darex Auth] Password reset notice:', code || err.message);
+
       let msg = 'Failed to send password reset email.';
       if (err.code === 'auth/user-not-found') {
         msg = 'No registered user found with this email address.';
@@ -338,7 +395,18 @@ export async function updateAdminFirebasePassword(
 
       return { success: true };
     } catch (err: any) {
-      console.error('[Darex Auth] Password update error:', err);
+      const code = err?.code || '';
+      const isConfigIssue =
+        code === 'auth/configuration-not-found' ||
+        code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('configuration-not-found') ||
+        err?.message?.includes('operation-not-allowed');
+
+      if (isConfigIssue) {
+        return updateLocalAdminPassword(currentPassword, newPassword);
+      }
+
+      console.warn('[Darex Auth] Password update notice:', code || err.message);
       let msg = 'Failed to update administrator password.';
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         msg = 'Current password entered is incorrect.';

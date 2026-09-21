@@ -131,7 +131,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
           setAuthStatus('unauthorized');
         }
       } catch (err) {
-        console.error('Error checking admin authorization:', err);
+        console.warn('Admin authorization check notice:', err);
         setAuthStatus('unauthorized');
       }
     });
@@ -317,11 +317,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   }
 
   // If user is not signed in, show AdminLogin
-  if (authStatus === 'unauthenticated' || !currentUser) {
+  if (authStatus === 'unauthenticated' || (!currentUser && !getLocalAdminSession())) {
     return (
       <AdminLogin
         onReturnToHome={onReturnToHome}
-        onLoginSuccess={async () => {
+        onLoginSuccess={async (email) => {
           const firebase = getFirebaseInstance();
           if (firebase?.auth.currentUser) {
             const isAuth = await checkUserIsAdmin(firebase.auth.currentUser);
@@ -329,9 +329,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
               setCurrentUser(firebase.auth.currentUser);
               setAuthStatus('authorized');
               loadSubmissions();
+              return;
             } else {
               setAuthStatus('unauthorized');
+              return;
             }
+          }
+
+          // Fallback when operating in local administrator mode
+          const localEmail = email || getLocalAdminSession() || DESIGNATED_ADMIN_EMAIL;
+          if (localEmail.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+            setAuthStatus('authorized');
+            loadSubmissions();
+          } else {
+            setAuthStatus('unauthorized');
           }
         }}
       />
