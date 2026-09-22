@@ -15,9 +15,10 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseInstance } from '../firebase/config';
 import type { StaffRole, StaffMember } from '../types';
+import { DESIGNATED_ADMIN_EMAIL } from '../constants/admin';
 import { getStaffRoleByEmail, DEFAULT_SUPER_ADMIN_STAFF } from './staffService';
 
-export const DESIGNATED_ADMIN_EMAIL = 'fatiufaruk7@gmail.com';
+export { DESIGNATED_ADMIN_EMAIL };
 
 const LOCAL_SESSION_KEY = 'darex_admin_local_session';
 const LOCAL_ROLE_KEY = 'darex_admin_local_role';

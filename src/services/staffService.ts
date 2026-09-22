@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebaseInstance } from '../firebase/config';
 import type { StaffMember, StaffRole, StaffStatus } from '../types';
-import { DESIGNATED_ADMIN_EMAIL } from './adminAuthService';
+import { DESIGNATED_ADMIN_EMAIL } from '../constants/admin';
 
 const STAFF_LOCAL_STORAGE_KEY = 'darex_staff_members_cache_v1';
 
