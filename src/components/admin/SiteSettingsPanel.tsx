@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Building,
   Phone,
@@ -17,6 +17,9 @@ import {
   Twitter,
   Github,
   MessageCircle,
+  RefreshCw,
+  Radio,
+  Check,
 } from 'lucide-react';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { DEFAULT_SITE_SETTINGS } from '../../services/siteSettingsService';
@@ -24,27 +27,46 @@ import type { SiteSettings } from '../../types';
 
 interface SiteSettingsPanelProps {
   onClose?: () => void;
+  currentAdminEmail?: string;
 }
 
 type TabType = 'general' | 'contact' | 'social' | 'hero' | 'footer' | 'seo';
 
-export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
-  const { settings, updateSettings, isLoading } = useSiteSettings();
+export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = ({
+  currentAdminEmail,
+}) => {
+  const {
+    settings,
+    updateSettings,
+    isLoading,
+    isRealtimeConnected,
+    lastRemoteUpdate,
+    clearRemoteUpdateAlert,
+    refreshSettings,
+  } = useSiteSettings();
+
   const [formData, setFormData] = useState<SiteSettings>(settings);
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [isJustSaved, setIsJustSaved] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
 
+  // Synchronize incoming Firestore updates instantly across active sessions
   useEffect(() => {
     if (settings) {
-      setFormData(settings);
+      if (!isDirty) {
+        setFormData(settings);
+      }
     }
-  }, [settings]);
+  }, [settings, isDirty]);
 
   const handleGeneralChange = (field: keyof SiteSettings['general'], value: string) => {
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       general: { ...prev.general, [field]: value },
@@ -52,6 +74,7 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
   };
 
   const handleContactChange = (field: keyof SiteSettings['contact'], value: string) => {
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       contact: { ...prev.contact, [field]: value },
@@ -59,6 +82,7 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
   };
 
   const handleSocialChange = (field: keyof SiteSettings['socialMedia'], value: string) => {
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       socialMedia: { ...prev.socialMedia, [field]: value },
@@ -66,6 +90,7 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
   };
 
   const handleHeroChange = (field: keyof SiteSettings['hero'], value: string) => {
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       hero: { ...prev.hero, [field]: value },
@@ -73,6 +98,7 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
   };
 
   const handleFooterChange = (field: keyof SiteSettings['footer'], value: string) => {
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       footer: { ...prev.footer, [field]: value },
@@ -80,23 +106,30 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
   };
 
   const handleSeoChange = (field: keyof SiteSettings['seo'], value: string) => {
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       seo: { ...prev.seo, [field]: value },
     }));
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isSaving) return;
+
     setStatusMessage(null);
     setIsSaving(true);
     try {
-      const res = await updateSettings(formData);
+      const res = await updateSettings(formData, currentAdminEmail);
       if (res.success) {
+        setIsDirty(false);
+        setIsJustSaved(true);
         setStatusMessage({
           type: 'success',
           text: 'Site settings have been successfully saved to Firestore (collection: siteSettings, document: main) and updated live on the website!',
         });
+        clearRemoteUpdateAlert();
+        setTimeout(() => setIsJustSaved(false), 3000);
         setTimeout(() => setStatusMessage(null), 5000);
       } else {
         setStatusMessage({
@@ -112,6 +145,24 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
     }
   };
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshSettings();
+      setIsDirty(false);
+      clearRemoteUpdateAlert();
+      setStatusMessage({
+        type: 'success',
+        text: 'Successfully refreshed latest site settings directly from Firestore.',
+      });
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (err) {
+      console.warn('Manual refresh error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleReset = () => {
     if (
       window.confirm(
@@ -119,7 +170,19 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
       )
     ) {
       setFormData(DEFAULT_SITE_SETTINGS);
+      setIsDirty(true);
     }
+  };
+
+  const handleApplyRemoteChanges = () => {
+    setFormData(settings);
+    setIsDirty(false);
+    clearRemoteUpdateAlert();
+    setStatusMessage({
+      type: 'success',
+      text: 'Synchronized with the latest remote changes.',
+    });
+    setTimeout(() => setStatusMessage(null), 3000);
   };
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
@@ -136,42 +199,140 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-mono text-[10px] font-semibold">
               FIRESTORE: siteSettings/main
             </span>
+
+            {/* Real-time Connection Indicator */}
+            {isRealtimeConnected ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px] font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                REALTIME SYNC (onSnapshot)
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-[10px] font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                CONNECTING
+              </span>
+            )}
+
             {formData.updatedAt && (
               <span className="text-xs text-slate-500 font-mono">
-                Last updated:{' '}
+                Updated:{' '}
                 {new Date(formData.updatedAt).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
-                })}
+                })}{' '}
+                {formData.updatedBy && <span className="text-slate-400">({formData.updatedBy})</span>}
               </span>
             )}
           </div>
+
           <h2 className="text-xl font-bold text-white tracking-tight mt-1">
             Site Settings Management
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Configure live company identity, contact numbers, Instagram URL, copy, and SEO meta
-            tags in real time.
+            Real-time multi-admin configuration for company profile, contact channels, Instagram URL, and SEO meta tags.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Header Action Controls with instant save & loading states */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing || isSaving}
+            className="p-2.5 rounded-xl text-slate-400 hover:text-white bg-slate-900 border border-slate-800 transition-colors disabled:opacity-50"
+            title="Refresh latest from Firestore"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
+          </button>
+
           <button
             type="button"
             onClick={handleReset}
-            className="px-3.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 flex items-center gap-1.5 transition-colors"
+            disabled={isSaving}
+            className="px-3.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 flex items-center gap-1.5 transition-colors disabled:opacity-50"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Defaults</span>
+            <span className="hidden sm:inline">Reset</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSave()}
+            disabled={isSaving || isLoading}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all flex items-center gap-1.5 shadow-md ${
+              isJustSaved
+                ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed'
+            }`}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                <span>Saving...</span>
+              </>
+            ) : isJustSaved ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                <span>Saved!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5 shrink-0" />
+                <span>Save{isDirty ? ' *' : ''}</span>
+              </>
+            )}
           </button>
         </div>
       </div>
+
+      {/* Remote update notification banner */}
+      <AnimatePresence>
+        {lastRemoteUpdate && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="p-4 rounded-xl bg-blue-950/70 border border-blue-800/80 text-blue-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg"
+          >
+            <div className="flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-white">Live Remote Update Received via onSnapshot</span>
+                <p className="text-slate-300 mt-0.5">
+                  Settings were just modified in Firestore by <span className="text-blue-300 font-mono font-semibold">{lastRemoteUpdate.updatedBy}</span> at {lastRemoteUpdate.receivedAt}.
+                  {isDirty
+                    ? ' You have unsaved local edits in this form.'
+                    : ' Your form has been automatically updated.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {isDirty && (
+                <button
+                  type="button"
+                  onClick={handleApplyRemoteChanges}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow"
+                >
+                  Apply Remote
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={clearRemoteUpdateAlert}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs transition-colors border border-slate-800"
+              >
+                Dismiss
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Status banner */}
       {statusMessage && (
@@ -555,27 +716,43 @@ export const SiteSettingsPanel: React.FC<SiteSettingsPanelProps> = () => {
 
         {/* Form Action Controls */}
         <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-500">
-            Changes persist directly to Firestore &amp; local resilient cache.
-          </p>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
+            <span>
+              {isDirty
+                ? 'You have unsaved changes in this form.'
+                : 'Form is in sync with Firestore & local resilient cache.'}
+            </span>
+          </div>
 
-          <button
-            type="submit"
-            disabled={isSaving || isLoading}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Saving to Firestore...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save Site Settings</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              type="submit"
+              disabled={isSaving || isLoading}
+              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-semibold text-white transition-all flex items-center justify-center gap-2 shadow-lg ${
+                isJustSaved
+                  ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                  : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed'
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Saving to Firestore...</span>
+                </>
+              ) : isJustSaved ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+                  <span>Site Settings Saved &amp; Live!</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 shrink-0" />
+                  <span>Save Site Settings{isDirty ? ' *' : ''}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>

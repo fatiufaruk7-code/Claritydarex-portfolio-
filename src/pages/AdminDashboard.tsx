@@ -1523,7 +1523,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
         {/* Tab 7: Site Settings View */}
         {activeTab === 'settings' && canEditSettings && (
           <div className="pt-6">
-            <SiteSettingsPanel />
+            <SiteSettingsPanel
+              currentAdminEmail={currentUser?.email || getLocalAdminSession() || DESIGNATED_ADMIN_EMAIL}
+            />
           </div>
         )}
       </div>

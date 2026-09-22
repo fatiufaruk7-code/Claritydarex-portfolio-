@@ -106,6 +106,30 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   }
 }
 
+// Helper to sanitize payload for Firestore (stripping any undefined values)
+function sanitizeForFirestore<T>(item: T): T {
+  if (item === undefined || item === null) {
+    return '' as unknown as T;
+  }
+  if (typeof item !== 'object') {
+    return item;
+  }
+  if (Array.isArray(item)) {
+    return item.map(sanitizeForFirestore) as unknown as T;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(item as Record<string, unknown>)) {
+    if (value === undefined) {
+      result[key] = '';
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = sanitizeForFirestore(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result as T;
+}
+
 /**
  * Update site settings in Firestore document `siteSettings/main`.
  */
@@ -113,12 +137,13 @@ export async function updateSiteSettings(
   settings: SiteSettings,
   userEmail?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const payload: SiteSettings = {
+  const rawPayload: SiteSettings = {
     ...settings,
     updatedAt: new Date().toISOString(),
     updatedBy: userEmail || 'Super Admin',
   };
 
+  const payload = sanitizeForFirestore(rawPayload);
   saveCachedSiteSettings(payload);
 
   const firebase = getFirebaseInstance();
@@ -137,50 +162,91 @@ export async function updateSiteSettings(
   }
 }
 
+export interface SiteSettingsSnapshotMeta {
+  hasPendingWrites?: boolean;
+  fromCache?: boolean;
+  isRealtimeConnected: boolean;
+}
+
 /**
  * Subscribe to realtime changes of siteSettings/main.
+ * Emits updates immediately when any admin modifies the document in Firestore.
  */
 export function subscribeToSiteSettings(
-  callback: (settings: SiteSettings) => void
+  callback: (settings: SiteSettings, meta: SiteSettingsSnapshotMeta) => void
 ): () => void {
-  const firebase = getFirebaseInstance();
-  if (!firebase) {
-    callback(getCachedSiteSettings());
-    return () => {};
-  }
+  let isUnsubscribed = false;
+  let unsubscribeFirestore: (() => void) | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-  try {
-    const docRef = doc(firebase.db, 'siteSettings', 'main');
-    const unsubscribe = onSnapshot(
-      docRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data() as Partial<SiteSettings>;
-          const merged: SiteSettings = {
-            general: { ...DEFAULT_SITE_SETTINGS.general, ...(data.general || {}) },
-            contact: { ...DEFAULT_SITE_SETTINGS.contact, ...(data.contact || {}) },
-            socialMedia: { ...DEFAULT_SITE_SETTINGS.socialMedia, ...(data.socialMedia || {}) },
-            hero: { ...DEFAULT_SITE_SETTINGS.hero, ...(data.hero || {}) },
-            footer: { ...DEFAULT_SITE_SETTINGS.footer, ...(data.footer || {}) },
-            seo: { ...DEFAULT_SITE_SETTINGS.seo, ...(data.seo || {}) },
-            updatedAt: data.updatedAt,
-            updatedBy: data.updatedBy,
-          };
-          saveCachedSiteSettings(merged);
-          callback(merged);
-        } else {
-          callback(getCachedSiteSettings());
+  // Immediate cached return so UI renders without waiting
+  const initialCache = getCachedSiteSettings();
+  callback(initialCache, { isRealtimeConnected: false, fromCache: true });
+
+  const trySubscribe = () => {
+    if (isUnsubscribed) return;
+
+    const firebase = getFirebaseInstance();
+    if (!firebase) {
+      // Retry in 1.2 seconds if Firebase is hydrating
+      retryTimer = setTimeout(trySubscribe, 1200);
+      return;
+    }
+
+    try {
+      const docRef = doc(firebase.db, 'siteSettings', 'main');
+      unsubscribeFirestore = onSnapshot(
+        docRef,
+        { includeMetadataChanges: true },
+        (docSnap) => {
+          if (isUnsubscribed) return;
+
+          if (docSnap.exists()) {
+            const data = docSnap.data() as Partial<SiteSettings>;
+            const merged: SiteSettings = {
+              general: { ...DEFAULT_SITE_SETTINGS.general, ...(data.general || {}) },
+              contact: { ...DEFAULT_SITE_SETTINGS.contact, ...(data.contact || {}) },
+              socialMedia: { ...DEFAULT_SITE_SETTINGS.socialMedia, ...(data.socialMedia || {}) },
+              hero: { ...DEFAULT_SITE_SETTINGS.hero, ...(data.hero || {}) },
+              footer: { ...DEFAULT_SITE_SETTINGS.footer, ...(data.footer || {}) },
+              seo: { ...DEFAULT_SITE_SETTINGS.seo, ...(data.seo || {}) },
+              updatedAt: data.updatedAt,
+              updatedBy: data.updatedBy,
+            };
+            saveCachedSiteSettings(merged);
+            callback(merged, {
+              hasPendingWrites: docSnap.metadata.hasPendingWrites,
+              fromCache: docSnap.metadata.fromCache,
+              isRealtimeConnected: true,
+            });
+          } else {
+            callback(getCachedSiteSettings(), {
+              hasPendingWrites: docSnap.metadata.hasPendingWrites,
+              fromCache: docSnap.metadata.fromCache,
+              isRealtimeConnected: true,
+            });
+          }
+        },
+        (error) => {
+          console.warn('Site settings snapshot error:', error);
+          if (!isUnsubscribed) {
+            callback(getCachedSiteSettings(), { isRealtimeConnected: false, fromCache: true });
+          }
         }
-      },
-      (error) => {
-        console.warn('Site settings snapshot error:', error);
-        callback(getCachedSiteSettings());
+      );
+    } catch (err) {
+      console.warn('Error subscribing to site settings:', err);
+      if (!isUnsubscribed) {
+        callback(getCachedSiteSettings(), { isRealtimeConnected: false, fromCache: true });
       }
-    );
-    return unsubscribe;
-  } catch (err) {
-    console.warn('Error subscribing to site settings:', err);
-    callback(getCachedSiteSettings());
-    return () => {};
-  }
+    }
+  };
+
+  trySubscribe();
+
+  return () => {
+    isUnsubscribed = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    if (unsubscribeFirestore) unsubscribeFirestore();
+  };
 }
