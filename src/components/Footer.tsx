@@ -1,8 +1,9 @@
 import React from 'react';
-import { ArrowUp, Github, Linkedin, Twitter, Dribbble, Instagram, Globe, ExternalLink, Shield, Heart } from 'lucide-react';
+import { ArrowUp, Github, Twitter, Instagram, MessageCircle, Globe, ExternalLink, Shield } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
 import { BrandLogo } from './BrandLogo';
 import { PWAInstallButton } from './PWAInstallButton';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 interface FooterProps {
   onNavigateToView: (view: 'home' | 'admin') => void;
@@ -10,8 +11,17 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSection }) => {
+  const { settings } = useSiteSettings();
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const socialLinks = {
+    github: settings.socialMedia?.github || COMPANY_INFO.socialLinks.github,
+    twitter: settings.socialMedia?.twitter || COMPANY_INFO.socialLinks.twitter,
+    instagram: settings.socialMedia?.instagram || COMPANY_INFO.socialLinks.instagram,
+    whatsapp: settings.socialMedia?.whatsapp || COMPANY_INFO.socialLinks.whatsapp,
   };
 
   return (
@@ -23,64 +33,58 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
           <div className="lg:col-span-2 space-y-4">
             <BrandLogo size="md" />
             <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-              Building digital solutions that move businesses forward. Full-cycle engineering, modern design, and enterprise-grade web development.
+              {settings.footer?.description ||
+                'Building digital solutions that move businesses forward. Full-cycle engineering, modern design, and enterprise-grade web development.'}
             </p>
             <div className="pt-2 flex items-center gap-3">
-              <a
-                href={COMPANY_INFO.socialLinks.github}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="GitHub"
-                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-              >
-                <Github className="w-4 h-4" strokeWidth={1.4} />
-              </a>
-              <a
-                href={COMPANY_INFO.socialLinks.linkedin}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="LinkedIn"
-                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-              >
-                <Linkedin className="w-4 h-4" strokeWidth={1.4} />
-              </a>
-              <a
-                href={COMPANY_INFO.socialLinks.twitter}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Twitter"
-                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-              >
-                <Twitter className="w-4 h-4" strokeWidth={1.4} />
-              </a>
-              <a
-                href={COMPANY_INFO.socialLinks.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Instagram Profile"
-                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
-              >
-                <Instagram className="w-4 h-4" strokeWidth={1.4} />
-              </a>
-              <a
-                href={COMPANY_INFO.officialWebsite}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Darex Website"
-                title="Visit Darex"
-                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
-              >
-                <Globe className="w-4 h-4" strokeWidth={1.4} />
-              </a>
-              <a
-                href={COMPANY_INFO.socialLinks.dribbble}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Dribbble"
-                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-              >
-                <Dribbble className="w-4 h-4" strokeWidth={1.4} />
-              </a>
+              {socialLinks.github && (
+                <a
+                  href={socialLinks.github}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="GitHub"
+                  className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <Github className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+              )}
+              {socialLinks.twitter && (
+                <a
+                  href={socialLinks.twitter}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Twitter"
+                  className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <Twitter className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+              )}
+              {socialLinks.instagram && (
+                <a
+                  href={socialLinks.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram Profile"
+                  className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <Instagram className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+              )}
+              {socialLinks.whatsapp && (
+                <a
+                  href={
+                    socialLinks.whatsapp.startsWith('http')
+                      ? socialLinks.whatsapp
+                      : `https://wa.me/${socialLinks.whatsapp.replace(/[^0-9]/g, '')}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="WhatsApp"
+                  className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <MessageCircle className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+              )}
             </div>
           </div>
 
@@ -196,15 +200,15 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               Office
             </div>
             <ul className="space-y-2.5 text-sm">
-              <li className="text-slate-300 font-medium">{COMPANY_INFO.location}</li>
+              <li className="text-slate-300 font-medium">{settings.general?.location || COMPANY_INFO.location}</li>
               <li>
-                <a href={`mailto:${COMPANY_INFO.email}`} className="hover:text-white transition-colors">
-                  {COMPANY_INFO.email}
+                <a href={`mailto:${settings.contact?.email || COMPANY_INFO.email}`} className="hover:text-white transition-colors">
+                  {settings.contact?.email || COMPANY_INFO.email}
                 </a>
               </li>
               <li>
-                <a href={`tel:${COMPANY_INFO.phone}`} className="font-mono hover:text-white transition-colors">
-                  {COMPANY_INFO.phoneFormatted} ({COMPANY_INFO.phone})
+                <a href={`tel:${settings.contact?.phone || COMPANY_INFO.phone}`} className="font-mono hover:text-white transition-colors">
+                  {settings.contact?.phone || COMPANY_INFO.phoneFormatted}
                 </a>
               </li>
               <li className="pt-0.5">
@@ -242,7 +246,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div>
-            &copy; {new Date().getFullYear()} Darex Digital Systems. All rights reserved.
+            &copy; {new Date().getFullYear()} {settings.footer?.copyrightText || 'Darex Digital Systems. All rights reserved.'}
           </div>
 
           <div className="flex items-center gap-6">

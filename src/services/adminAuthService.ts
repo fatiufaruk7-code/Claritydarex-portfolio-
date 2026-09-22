@@ -14,10 +14,13 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseInstance } from '../firebase/config';
+import type { StaffRole, StaffMember } from '../types';
+import { getStaffRoleByEmail, DEFAULT_SUPER_ADMIN_STAFF } from './staffService';
 
 export const DESIGNATED_ADMIN_EMAIL = 'fatiufaruk7@gmail.com';
 
 const LOCAL_SESSION_KEY = 'darex_admin_local_session';
+const LOCAL_ROLE_KEY = 'darex_admin_local_role';
 const LOCAL_ADMIN_HASH_KEY = 'darex_admin_p_hash';
 
 async function hashPassword(password: string): Promise<string> {
@@ -108,60 +111,83 @@ export async function updateLocalAdminPassword(
   }
 }
 
+export interface StaffAuthStatus {
+  isAuthorized: boolean;
+  role: StaffRole;
+  isActive: boolean;
+  staffMember?: StaffMember;
+  error?: string;
+  reason?: string;
+}
+
 export interface AdminAuthResult {
   success: boolean;
   user?: User;
   isAdmin?: boolean;
+  role?: StaffRole;
+  staffMember?: StaffMember;
   error?: string;
   errorCode?: string;
 }
 
-/**
- * Checks if a given Firebase User has administrator privileges via:
- * 1. Firebase Auth custom claim (`admin === true` or `role === 'admin'`)
- * 2. Trusted `/admins/{uid}` document in Firestore
- * 3. Designated administrator email (fatiufaruk7@gmail.com)
- */
-export async function checkUserIsAdmin(user: User): Promise<boolean> {
-  if (!user) return false;
+export async function checkUserStaffRole(
+  user: User | null,
+  emailCandidate?: string
+): Promise<StaffAuthStatus> {
+  const email = (
+    user?.email ||
+    emailCandidate ||
+    getLocalAdminSession() ||
+    ''
+  )
+    .trim()
+    .toLowerCase();
 
-  try {
-    // 1. Check custom claims on ID token
-    const tokenResult = await user.getIdTokenResult(true);
-    if (tokenResult.claims?.admin === true || tokenResult.claims?.role === 'admin') {
-      return true;
-    }
-  } catch (err) {
-    console.warn('[Darex Auth] Could not inspect ID token claims:', err);
+  if (!email) {
+    return { isAuthorized: false, role: 'SUPPORT', isActive: false, error: 'Unauthenticated' };
   }
 
-  // 2. Check Firestore /admins/{uid} collection if available
-  const firebase = getFirebaseInstance();
-  if (firebase) {
+  if (email === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+    return {
+      isAuthorized: true,
+      role: 'SUPER_ADMIN',
+      isActive: true,
+      staffMember: DEFAULT_SUPER_ADMIN_STAFF,
+    };
+  }
+
+  // Check custom claims if user is present
+  if (user) {
     try {
-      const adminDocRef = doc(firebase.db, 'admins', user.uid);
-      const adminDocSnap = await getDoc(adminDocRef);
-      if (adminDocSnap.exists()) {
-        const data = adminDocSnap.data();
-        if (data.isAdmin === true || data.role === 'admin' || data.active !== false) {
-          return true;
-        }
+      const tokenResult = await user.getIdTokenResult(true);
+      if (tokenResult.claims?.admin === true || tokenResult.claims?.role === 'SUPER_ADMIN') {
+        return {
+          isAuthorized: true,
+          role: 'SUPER_ADMIN',
+          isActive: true,
+          staffMember: DEFAULT_SUPER_ADMIN_STAFF,
+        };
       }
     } catch {
-      // Ignore read errors or missing doc
+      // ignore
     }
   }
 
-  // 3. Designated verified administrator email check
-  if (user.email && user.email.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
-    return true;
-  }
-
-  return false;
+  const staffResult = await getStaffRoleByEmail(email);
+  return staffResult;
 }
 
 /**
- * Authenticates the administrator with Firebase Auth and verifies admin authorization
+ * Checks if a given Firebase User has administrator or staff privileges.
+ */
+export async function checkUserIsAdmin(user: User): Promise<boolean> {
+  if (!user) return false;
+  const res = await checkUserStaffRole(user);
+  return res.isAuthorized && res.isActive;
+}
+
+/**
+ * Authenticates the administrator or staff member with Firebase Auth and verifies authorization
  */
 export async function loginAdminWithCredentials(
   emailInput: string,
@@ -195,14 +221,15 @@ export async function loginAdminWithCredentials(
         passwordInput
       );
 
-      const isAuthorized = await checkUserIsAdmin(userCredential.user);
+      const authStatus = await checkUserStaffRole(userCredential.user, trimmedEmail);
 
-      if (!isAuthorized) {
-        // If signed in, but user has no admin privileges:
+      if (!authStatus.isAuthorized || !authStatus.isActive) {
         await signOut(firebase.auth);
         return {
           success: false,
-          error: 'Access denied. You are not authorized to access the Darex Admin Portal.',
+          error:
+            authStatus.reason ||
+            'Access denied. You are not authorized to access the Darex Management Portal.',
           errorCode: 'auth/not-authorized',
         };
       }
@@ -213,6 +240,8 @@ export async function loginAdminWithCredentials(
         success: true,
         user: userCredential.user,
         isAdmin: true,
+        role: authStatus.role,
+        staffMember: authStatus.staffMember,
       };
     } catch (err: any) {
       const code = err?.code || '';
@@ -228,10 +257,13 @@ export async function loginAdminWithCredentials(
           '[Darex Auth] Firebase Auth Email/Password provider is not yet enabled in Firebase Console. Using local administrator mode.'
         );
 
-        if (trimmedEmail.toLowerCase() !== DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+        const authStatus = await checkUserStaffRole(null, trimmedEmail);
+        if (!authStatus.isAuthorized || !authStatus.isActive) {
           return {
             success: false,
-            error: 'Access denied. You are not authorized to access the Darex Admin Portal.',
+            error:
+              authStatus.reason ||
+              'Access denied. You are not authorized to access the Darex Management Portal.',
             errorCode: 'auth/not-authorized',
           };
         }
@@ -240,7 +272,7 @@ export async function loginAdminWithCredentials(
         if (!isPasswordValid) {
           return {
             success: false,
-            error: 'Invalid email or password. Please verify your administrator credentials.',
+            error: 'Invalid email or password. Please verify your credentials.',
             errorCode: 'auth/invalid-credential',
           };
         }
@@ -250,36 +282,41 @@ export async function loginAdminWithCredentials(
         return {
           success: true,
           isAdmin: true,
+          role: authStatus.role,
+          staffMember: authStatus.staffMember,
         };
       }
 
       console.warn('[Darex Auth] Login notice:', code || err.message);
 
-      // If Firebase Auth does not have the user yet, but credentials match designated admin password
-      if (trimmedEmail.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+      // Check role and local fallback password
+      const authStatus = await checkUserStaffRole(null, trimmedEmail);
+      if (authStatus.isAuthorized && authStatus.isActive) {
         const isPasswordValid = await verifyLocalAdminPassword(passwordInput);
         if (isPasswordValid) {
           saveLocalAdminSession(trimmedEmail);
           return {
             success: true,
             isAdmin: true,
+            role: authStatus.role,
+            staffMember: authStatus.staffMember,
           };
         }
       }
 
-      let message = 'Failed to authenticate administrator.';
+      let message = 'Failed to authenticate.';
 
       if (
         code === 'auth/invalid-credential' ||
         code === 'auth/wrong-password' ||
         code === 'auth/user-not-found'
       ) {
-        message = 'Invalid email or password. Please verify your administrator credentials.';
+        message = 'Invalid email or password. Please verify your credentials.';
       } else if (code === 'auth/too-many-requests') {
         message =
           'Access temporarily restricted due to multiple failed login attempts. Please try again later or reset your password.';
       } else if (code === 'auth/user-disabled') {
-        message = 'This administrator account has been disabled.';
+        message = 'This account has been disabled.';
       } else if (err.message) {
         message = err.message;
       }
@@ -293,21 +330,22 @@ export async function loginAdminWithCredentials(
   }
 
   // Resilient Administrator Verification (when Firebase environment keys are pending or unconfigured)
-  // 1. Strict Authorization Gate: ONLY the designated admin email is allowed access
-  if (trimmedEmail.toLowerCase() !== DESIGNATED_ADMIN_EMAIL.toLowerCase()) {
+  const authStatus = await checkUserStaffRole(null, trimmedEmail);
+  if (!authStatus.isAuthorized || !authStatus.isActive) {
     return {
       success: false,
-      error: 'Access denied. You are not authorized to access the Darex Admin Portal.',
+      error:
+        authStatus.reason ||
+        'Access denied. You are not authorized to access the Darex Management Portal.',
       errorCode: 'auth/not-authorized',
     };
   }
 
-  // 2. Verify against secure local administrator key
   const isPasswordValid = await verifyLocalAdminPassword(passwordInput);
   if (!isPasswordValid) {
     return {
       success: false,
-      error: 'Invalid email or password. Please verify your administrator credentials.',
+      error: 'Invalid email or password. Please verify your credentials.',
       errorCode: 'auth/invalid-credential',
     };
   }
@@ -317,6 +355,8 @@ export async function loginAdminWithCredentials(
   return {
     success: true,
     isAdmin: true,
+    role: authStatus.role,
+    staffMember: authStatus.staffMember,
   };
 }
 

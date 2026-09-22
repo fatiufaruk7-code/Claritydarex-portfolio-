@@ -12,11 +12,9 @@ export const COMPANY_INFO = {
   officialWebsite: 'https://claritydarex.vercel.app/',
   socialLinks: {
     instagram: 'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5',
-    website: 'https://claritydarex.vercel.app/',
-    github: 'https://github.com/darex',
-    linkedin: 'https://linkedin.com/company/darex',
     twitter: 'https://twitter.com/darexhq',
-    dribbble: 'https://dribbble.com/darex',
+    github: 'https://github.com/darex',
+    whatsapp: 'https://wa.me/2348137941486',
   },
 };
 

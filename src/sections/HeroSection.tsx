@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowRight, Layers, Sparkles, CheckCircle } from 'lucide-react';
 import { TechIllustration } from '../components/TechIllustration';
 import { PWAInstallButton } from '../components/PWAInstallButton';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 interface HeroSectionProps {
   onGetStartedClick: () => void;
@@ -13,6 +14,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onGetStartedClick,
   onViewWorkClick,
 }) => {
+  const { settings } = useSiteSettings();
+
+  const headline = settings.hero?.headline || 'Building Digital Solutions That Move Businesses Forward.';
+  const subheadline = settings.hero?.description || 'Darex provides modern digital solutions designed to help businesses grow, improve their online presence, and operate more efficiently with resilient, custom software architecture.';
+  const primaryCta = settings.hero?.primaryButtonText || 'Get Started';
+  const secondaryCta = 'View Our Work';
+
   return (
     <section
       id="home"
@@ -81,10 +89,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               }}
               className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.12]"
             >
-              Building Digital Solutions That{' '}
-              <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-white bg-clip-text text-transparent">
-                Move Businesses Forward.
-              </span>
+              {headline}
             </motion.h1>
 
             {/* Supporting Text */}
@@ -95,7 +100,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               }}
               className="text-lg sm:text-xl text-slate-300 leading-relaxed max-w-2xl font-normal"
             >
-              Darex provides modern digital solutions designed to help businesses grow, improve their online presence, and operate more efficiently with resilient, custom software architecture.
+              {subheadline}
             </motion.p>
 
             {/* CTAs */}
@@ -113,7 +118,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 id="hero-primary-cta"
                 className="group inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all duration-200 shadow-xl shadow-blue-600/30 hover:shadow-blue-600/50"
               >
-                <span>Get Started</span>
+                <span>{primaryCta}</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" strokeWidth={1.5} />
               </motion.button>
 
@@ -125,7 +130,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 className="inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl text-base font-medium text-slate-200 hover:text-white bg-gradient-to-b from-slate-900/90 to-[#0c0f17] hover:from-slate-800 border border-slate-700/70 hover:border-slate-600 transition-all duration-200 shadow-sm"
               >
                 <Layers className="w-4 h-4 text-blue-400" strokeWidth={1.5} />
-                <span>View Our Work</span>
+                <span>{secondaryCta}</span>
               </motion.button>
 
               <PWAInstallButton variant="hero" />

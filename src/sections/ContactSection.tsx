@@ -9,11 +9,11 @@ import {
   AlertCircle,
   Loader2,
   Github,
-  Linkedin,
   Twitter,
-  Dribbble,
   Instagram,
+  MessageCircle,
   Globe,
+  Clock,
   MessageSquare,
   ShieldCheck,
   ExternalLink,
@@ -21,12 +21,14 @@ import {
 import { COMPANY_INFO } from '../data/company';
 import { submitContactForm } from '../services/submissionService';
 import { ClassicIcon } from '../components/ClassicIcon';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 interface ContactSectionProps {
   selectedProjectType?: string;
 }
 
 export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectType }) => {
+  const { settings } = useSiteSettings();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -221,10 +223,10 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                       Executive Inbox
                     </div>
                     <a
-                      href={`mailto:${COMPANY_INFO.email}`}
+                      href={`mailto:${settings.contact?.email || COMPANY_INFO.email}`}
                       className="text-sm sm:text-base font-semibold text-white group-hover:text-blue-400 transition-colors mt-0.5 block truncate"
                     >
-                      {COMPANY_INFO.email}
+                      {settings.contact?.email || COMPANY_INFO.email}
                     </a>
                     <div className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
@@ -243,14 +245,20 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                       Direct Telephone & WhatsApp
                     </div>
                     <a
-                      href={`tel:${COMPANY_INFO.phone}`}
+                      href={`tel:${settings.contact?.phone || COMPANY_INFO.phone}`}
                       className="text-sm sm:text-base font-semibold text-white group-hover:text-blue-400 transition-colors font-mono mt-0.5 block"
                     >
-                      {COMPANY_INFO.phoneFormatted}
+                      {settings.contact?.phone || COMPANY_INFO.phoneFormatted}
                     </a>
                     <div className="mt-2 flex items-center gap-3">
                       <a
-                        href={whatsappUrl()}
+                        href={
+                          settings.socialMedia?.whatsapp
+                            ? (settings.socialMedia.whatsapp.startsWith('http')
+                                ? settings.socialMedia.whatsapp
+                                : `https://wa.me/${settings.socialMedia.whatsapp.replace(/[^0-9]/g, '')}`)
+                            : whatsappUrl()
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
@@ -272,10 +280,17 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                       Location & Availability
                     </div>
                     <div className="text-sm sm:text-base font-semibold text-white mt-0.5">
-                      {COMPANY_INFO.location}
+                      {settings.general?.location || COMPANY_INFO.location}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      Based in Lagos, Nigeria. Available for local and remote projects worldwide.
+                      {settings.general?.businessHours ? (
+                        <span className="flex items-center gap-1 text-slate-300 mt-0.5">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{settings.general.businessHours}</span>
+                        </span>
+                      ) : (
+                        'Based in Lagos, Nigeria. Available for local and remote projects worldwide.'
+                      )}
                     </div>
                   </div>
                 </div>
@@ -323,62 +338,57 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                 Corporate Social Presence
               </div>
               <div className="flex items-center gap-3">
-                <a
-                  href={COMPANY_INFO.socialLinks.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Darex on GitHub"
-                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <Github className="w-4 h-4" strokeWidth={1.4} />
-                </a>
-                <a
-                  href={COMPANY_INFO.socialLinks.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Darex on LinkedIn"
-                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <Linkedin className="w-4 h-4" strokeWidth={1.4} />
-                </a>
-                <a
-                  href={COMPANY_INFO.socialLinks.twitter}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Darex on X/Twitter"
-                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <Twitter className="w-4 h-4" strokeWidth={1.4} />
-                </a>
-                <a
-                  href={COMPANY_INFO.socialLinks.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Faruk Fatiu on Instagram"
-                  title="Instagram Profile"
-                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <Instagram className="w-4 h-4" strokeWidth={1.4} />
-                </a>
-                <a
-                  href={COMPANY_INFO.officialWebsite}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Darex Website"
-                  title="Darex Website"
-                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <Globe className="w-4 h-4" strokeWidth={1.4} />
-                </a>
-                <a
-                  href={COMPANY_INFO.socialLinks.dribbble}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Darex on Dribbble"
-                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <Dribbble className="w-4 h-4" strokeWidth={1.4} />
-                </a>
+                {(settings.socialMedia?.github || COMPANY_INFO.socialLinks.github) && (
+                  <a
+                    href={settings.socialMedia?.github || COMPANY_INFO.socialLinks.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Darex on GitHub"
+                    className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
+                  >
+                    <Github className="w-4 h-4" strokeWidth={1.4} />
+                  </a>
+                )}
+                {(settings.socialMedia?.twitter || COMPANY_INFO.socialLinks.twitter) && (
+                  <a
+                    href={settings.socialMedia?.twitter || COMPANY_INFO.socialLinks.twitter}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Darex on X/Twitter"
+                    className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-blue-300 hover:border-blue-400/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(59,130,246,0.2)] transition-all duration-300 hover:scale-105"
+                  >
+                    <Twitter className="w-4 h-4" strokeWidth={1.4} />
+                  </a>
+                )}
+                {(settings.socialMedia?.instagram || COMPANY_INFO.socialLinks.instagram) && (
+                  <a
+                    href={settings.socialMedia?.instagram || COMPANY_INFO.socialLinks.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Faruk Fatiu on Instagram"
+                    title="Instagram Profile"
+                    className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
+                  >
+                    <Instagram className="w-4 h-4" strokeWidth={1.4} />
+                  </a>
+                )}
+                {(settings.socialMedia?.whatsapp || settings.contact?.whatsappNumber || COMPANY_INFO.socialLinks.whatsapp) && (
+                  <a
+                    href={
+                      settings.socialMedia?.whatsapp
+                        ? (settings.socialMedia.whatsapp.startsWith('http')
+                            ? settings.socialMedia.whatsapp
+                            : `https://wa.me/${settings.socialMedia.whatsapp.replace(/[^0-9]/g, '')}`)
+                        : whatsappUrl()
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Darex on WhatsApp"
+                    className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
+                  >
+                    <MessageCircle className="w-4 h-4" strokeWidth={1.4} />
+                  </a>
+                )}
               </div>
               <div className="mt-3">
                 <a

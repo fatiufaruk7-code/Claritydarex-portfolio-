@@ -18,31 +18,34 @@ service cloud.firestore {
 
     // Strict Administrator Authorization:
     // Requires either:
-    // 1. Firebase Auth custom claim `admin == true` or `role == 'admin'`
+    // 1. Firebase Auth custom claim `admin == true` or `role == 'SUPER_ADMIN'`
     // 2. Verified admin record in /admins/{uid}
-    // 3. Designated primary administrator email (fatiufaruk7@gmail.com) with verified email
+    // 3. Designated primary administrator email (fatiufaruk7@gmail.com)
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true ||
+        request.auth.token.role == 'SUPER_ADMIN' ||
         request.auth.token.role == 'admin' ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (request.auth.token.email == 'fatiufaruk7@gmail.com' && request.auth.token.email_verified == true)
+        (request.auth.token.email != null && request.auth.token.email == 'fatiufaruk7@gmail.com')
+      );
+    }
+
+    // Staff Authorization:
+    // Allows access for any recognized staff role (SUPER_ADMIN, MANAGER, SUPPORT, DEVELOPER, EDITOR)
+    function isStaff() {
+      return isSignedIn() && (
+        isAdmin() ||
+        request.auth.token.role in ['SUPER_ADMIN', 'MANAGER', 'SUPPORT', 'DEVELOPER', 'EDITOR'] ||
+        exists(/databases/$(database)/documents/staff/$(request.auth.uid))
       );
     }
 
     function isValidSubmission(data) {
-      return data.keys().hasAll(['name', 'email', 'message', 'read', 'createdAt']) &&
-             data.keys().hasOnly(['name', 'email', 'phone', 'company', 'projectType', 'budget', 'timeline', 'message', 'read', 'createdAt', 'source']) &&
+      return data.keys().hasAll(['name', 'email', 'message']) &&
              data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
              data.email is string && data.email.size() >= 5 && data.email.size() <= 150 &&
-             data.message is string && data.message.size() >= 5 && data.message.size() <= 3000 &&
-             data.read is bool &&
-             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
-             (!('company' in data) || (data.company is string && data.company.size() <= 120)) &&
-             (!('projectType' in data) || (data.projectType is string && data.projectType.size() <= 80)) &&
-             (!('budget' in data) || (data.budget is string && data.budget.size() <= 80)) &&
-             (!('timeline' in data) || (data.timeline is string && data.timeline.size() <= 80)) &&
-             (!('source' in data) || (data.source is string && data.source.size() <= 30));
+             data.message is string && data.message.size() >= 5 && data.message.size() <= 3000;
     }
 
     // Default deny all access
@@ -56,42 +59,58 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Contact Submissions collection:
-    // Public visitors can submit contact forms with schema validation
-    // ONLY authorized administrators can read, list, update, or delete submissions
+    // Staff members collection (RBAC):
+    match /staff/{staffId} {
+      allow read: if isStaff() || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Site settings collection (e.g. siteSettings/main):
+    // Public can read to render company details, hero, footer, and social links.
+    // Authorized administrators and staff can edit site configuration.
+    match /siteSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin() || isStaff();
+    }
+
+    // Legacy settings collection:
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Primary contact submissions collection:
+    // Public visitors can submit contact forms
+    // Authorized staff and administrators can view, review, assign, and update status/notes
+    match /contactSubmissions/{submissionId} {
+      allow create: if isValidSubmission(incoming());
+      allow read: if isStaff() || isAdmin();
+      allow update: if isStaff() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Legacy submissions collection:
     match /submissions/{submissionId} {
-      allow create: if isValidSubmission(incoming()) && incoming().read == false;
-      allow read: if isAdmin();
-      allow update: if isAdmin() &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['read']) &&
-                    incoming().read is bool;
+      allow create: if isValidSubmission(incoming());
+      allow read: if isStaff() || isAdmin();
+      allow update: if isStaff() || isAdmin();
       allow delete: if isAdmin();
     }
 
     // Projects collection:
-    // Public can view showcase projects; ONLY authorized administrators can modify or delete
     match /projects/{projectId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // Services collection:
-    // Public can view services; ONLY authorized administrators can modify or delete
     match /services/{serviceId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // Testimonials collection:
-    // Public can view client reviews; ONLY authorized administrators can modify or delete
     match /testimonials/{testimonialId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // Site settings collection:
-    // Public can view site settings; ONLY authorized administrators can modify or delete
-    match /settings/{settingId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
