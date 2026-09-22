@@ -19,6 +19,7 @@ import {
   Check,
   X,
   UserCheck,
+  Radio,
 } from 'lucide-react';
 import {
   getStaffMembers,
@@ -26,6 +27,7 @@ import {
   updateStaffMember,
   toggleStaffStatus,
   deleteStaffMember,
+  subscribeToStaffMembers,
 } from '../../services/staffService';
 import { DESIGNATED_ADMIN_EMAIL } from '../../services/adminAuthService';
 import type { StaffMember, StaffRole, StaffStatus } from '../../types';
@@ -41,6 +43,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
 }) => {
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -79,21 +82,32 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
   const isSuperAdmin = currentRole === 'SUPER_ADMIN';
   const canManage = isSuperAdmin;
 
+  // Real-time Firestore onSnapshot listener: Synchronizes staff records across all browsers and devices
   useEffect(() => {
-    loadStaff();
-  }, []);
-
-  const loadStaff = async () => {
     setIsLoading(true);
-    try {
-      const list = await getStaffMembers();
-      setStaffList(list);
-    } catch (err: unknown) {
-      console.error('Failed to load staff list:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setSyncError(null);
+
+    const unsubscribe = subscribeToStaffMembers(
+      (realtimeList) => {
+        setStaffList(realtimeList);
+        setIsLoading(false);
+        setSyncError(null);
+      },
+      (err) => {
+        console.error('[StaffManagementPanel] Real-time staff error:', err);
+        setIsLoading(false);
+        setSyncError(
+          err.message?.includes('PERMISSION_DENIED')
+            ? 'Firestore access restricted: verify Cloud Firestore API is enabled and your account has authorized admin privileges in darex-portfolio.'
+            : err.message || 'Error connecting to Firestore staff collection.'
+        );
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handleOpenAddModal = () => {
     setEditingStaff(null);
@@ -163,9 +177,9 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
             text: `Staff member "${trimmedName}" successfully updated in Firestore.`,
           });
           setIsModalOpen(false);
-          loadStaff();
+          // onSnapshot listener automatically updates staffList across all connected browsers
         } else {
-          setFormError(res.error || 'Failed to update staff member.');
+          setFormError(res.error || 'Failed to update staff member in Firestore.');
         }
       } else {
         // Check if email already exists
@@ -190,12 +204,12 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
         if (res.success) {
           setNotification({
             type: 'success',
-            text: `Staff member "${trimmedName}" successfully created in Firestore.`,
+            text: `Staff member "${trimmedName}" successfully saved to Firestore.`,
           });
           setIsModalOpen(false);
-          loadStaff();
+          // onSnapshot listener automatically updates staffList across all connected browsers
         } else {
-          setFormError(res.error || 'Failed to create staff member.');
+          setFormError(res.error || 'Failed to create staff member in Firestore.');
         }
       }
     } catch (err: unknown) {
@@ -216,13 +230,13 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
       const newStatus = staff.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
       const res = await toggleStaffStatus(staff.id, newStatus);
       if (res.success) {
-        setStaffList((prev) =>
-          prev.map((s) => (s.id === staff.id ? { ...s, status: newStatus } : s))
-        );
         setNotification({
           type: 'success',
           text: `Staff member ${staff.fullName} is now ${newStatus}.`,
         });
+        // onSnapshot listener automatically updates staffList across all connected browsers
+      } else {
+        alert(res.error || 'Failed to toggle staff status in Firestore.');
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to toggle staff status.');
@@ -241,13 +255,13 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
     try {
       const res = await deleteStaffMember(deletingStaff.id);
       if (res.success) {
-        setStaffList((prev) => prev.filter((s) => s.id !== deletingStaff.id));
         setNotification({
           type: 'success',
-          text: `Staff member ${deletingStaff.fullName} removed successfully.`,
+          text: `Staff member ${deletingStaff.fullName} removed successfully from Firestore.`,
         });
+        // onSnapshot listener automatically updates staffList across all connected browsers
       } else {
-        alert(res.error || 'Failed to remove staff member.');
+        alert(res.error || 'Failed to remove staff member from Firestore.');
       }
       setDeletingStaff(null);
     } catch (err: unknown) {
@@ -284,11 +298,15 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 font-mono text-[10px] font-semibold">
               RBAC: Role-Based Access Control
             </span>
-            <span className="text-xs text-slate-500 font-mono">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live Firestore Sync
+            </span>
+            <span className="text-xs text-slate-400 font-mono font-bold">
               Total Staff: {staffList.length}
             </span>
           </div>
@@ -296,7 +314,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
             Staff &amp; Team Management
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Provision staff accounts, assign specific privileges, and delegate client inquiries.
+            Provision staff accounts, assign privileges, and manage your team using Firestore as the single source of truth.
           </p>
         </div>
 
@@ -310,6 +328,16 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
           </button>
         )}
       </div>
+
+      {/* Sync Error Notice */}
+      {syncError && (
+        <div className="p-3.5 rounded-xl text-xs flex items-center justify-between gap-2.5 bg-amber-950/60 border border-amber-800/60 text-amber-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{syncError}</span>
+          </div>
+        </div>
+      )}
 
       {/* Notification */}
       {notification && (

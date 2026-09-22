@@ -27,7 +27,10 @@ service cloud.firestore {
         request.auth.token.role == 'SUPER_ADMIN' ||
         request.auth.token.role == 'admin' ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (request.auth.token.email != null && request.auth.token.email == 'fatiufaruk7@gmail.com')
+        (request.auth.token.email != null && (
+          request.auth.token.email == 'fatiufaruk7@gmail.com' ||
+          request.auth.token.email.matches('(?i)^fatiufaruk7@gmail\\.com$')
+        ))
       );
     }
 

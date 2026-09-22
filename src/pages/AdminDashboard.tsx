@@ -61,7 +61,7 @@ import {
   toggleSubmissionRead,
   deleteSubmissionRecord,
 } from '../services/submissionService';
-import { getStaffMembers } from '../services/staffService';
+import { getStaffMembers, subscribeToStaffMembers } from '../services/staffService';
 import { SiteSettingsPanel } from '../components/admin/SiteSettingsPanel';
 import { StaffManagementPanel } from '../components/admin/StaffManagementPanel';
 import { EnquiryDetailModal } from '../components/admin/EnquiryDetailModal';
@@ -182,10 +182,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     setIsLoadingData(true);
     setDataError(null);
 
-    // Initial load of staff directory
-    getStaffMembers()
-      .then((staff) => setStaffList(staff))
-      .catch((err) => console.warn('Could not load staff list:', err));
+    // Live onSnapshot listener for Firestore staff collection
+    const unsubscribeStaff = subscribeToStaffMembers(
+      (realtimeStaff) => {
+        setStaffList(realtimeStaff);
+      },
+      (err) => {
+        console.warn('[AdminDashboard] Firestore staff real-time listener notice:', err);
+      }
+    );
 
     // Live onSnapshot listener for Firestore contactSubmissions
     const unsubscribeSubmissions = subscribeToContactSubmissions(
@@ -213,6 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     );
 
     return () => {
+      unsubscribeStaff();
       unsubscribeSubmissions();
     };
   }, [authStatus]);

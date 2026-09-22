@@ -7,14 +7,14 @@ import {
   deleteDoc,
   query,
   orderBy,
+  onSnapshot,
+  Unsubscribe,
 } from 'firebase/firestore';
 import { getFirebaseInstance } from '../firebase/config';
 import type { StaffMember, StaffRole, StaffStatus } from '../types';
 import { DESIGNATED_ADMIN_EMAIL } from '../constants/admin';
 
-const STAFF_LOCAL_STORAGE_KEY = 'darex_staff_members_cache_v1';
-
-// Initial default staff (Lead Architect / Super Admin)
+// Initial default Super Admin staff record (Lead Architect / Owner)
 export const DEFAULT_SUPER_ADMIN_STAFF: StaffMember = {
   id: 'staff_super_admin_faruk',
   fullName: 'Faruk Fatiu',
@@ -25,46 +25,52 @@ export const DEFAULT_SUPER_ADMIN_STAFF: StaffMember = {
   createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
 };
 
-export function getCachedStaff(): StaffMember[] {
+/**
+ * Ensures the primary Super Admin profile is physically seeded into the Firestore `staff` collection.
+ * This guarantees both Chrome and Opera Mini see the lead administrator directly in Firestore.
+ */
+export async function ensureSuperAdminInFirestore(): Promise<void> {
+  const firebase = getFirebaseInstance();
+  if (!firebase) return;
+
   try {
-    const raw = localStorage.getItem(STAFF_LOCAL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
+    const adminDocRef = doc(firebase.db, 'staff', DEFAULT_SUPER_ADMIN_STAFF.id);
+    const snap = await getDoc(adminDocRef);
+    if (!snap.exists()) {
+      await setDoc(adminDocRef, DEFAULT_SUPER_ADMIN_STAFF, { merge: true });
     }
   } catch (err) {
-    console.warn('Failed to parse cached staff', err);
-  }
-  return [DEFAULT_SUPER_ADMIN_STAFF];
-}
-
-export function saveCachedStaff(staff: StaffMember[]): void {
-  try {
-    localStorage.setItem(STAFF_LOCAL_STORAGE_KEY, JSON.stringify(staff));
-  } catch (err) {
-    console.warn('Failed to cache staff', err);
+    // Non-blocking initialization
+    console.warn('[StaffService] Auto-seed Super Admin notice:', err);
   }
 }
 
 /**
- * Fetch all staff members from Firestore `staff` collection.
+ * Real-time listener for the Firestore `staff` collection using onSnapshot().
+ * Synchronizes staff member records and total counts across all active browser
+ * tabs, devices (Chrome, Opera Mini, etc.), and sessions in real time.
  */
-export async function getStaffMembers(): Promise<StaffMember[]> {
+export function subscribeToStaffMembers(
+  onUpdate: (staff: StaffMember[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
   const firebase = getFirebaseInstance();
-  const cached = getCachedStaff();
 
   if (!firebase) {
-    return cached;
+    if (onError) onError(new Error('Firebase is not initialized.'));
+    onUpdate([DEFAULT_SUPER_ADMIN_STAFF]);
+    return () => {};
   }
 
-  try {
-    const q = query(collection(firebase.db, 'staff'), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
+  // Attempt to auto-seed super admin record if not yet created
+  ensureSuperAdminInFirestore().catch(() => {});
+
+  const staffCol = collection(firebase.db, 'staff');
+
+  const processSnapshot = (snapshotDocs: Array<{ id: string; data: () => Record<string, any> }>): StaffMember[] => {
     const list: StaffMember[] = [];
 
-    snapshot.forEach((docSnap) => {
+    snapshotDocs.forEach((docSnap) => {
       const d = docSnap.data();
       list.push({
         id: docSnap.id,
@@ -89,16 +95,135 @@ export async function getStaffMembers(): Promise<StaffMember[]> {
       list.unshift(DEFAULT_SUPER_ADMIN_STAFF);
     }
 
-    saveCachedStaff(list);
     return list;
-  } catch (err) {
-    console.warn('Could not fetch staff from Firestore, using cached records:', err);
-    return cached;
+  };
+
+  try {
+    const q = query(staffCol, orderBy('createdAt', 'desc'));
+
+    return onSnapshot(
+      q,
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        const staffList = processSnapshot(snapshot.docs);
+        onUpdate(staffList);
+      },
+      (err) => {
+        console.warn('[StaffService] onSnapshot orderBy query error, falling back to direct collection listener:', err);
+
+        // Fallback: If compound index or ordering fails, subscribe directly to collection and sort in memory
+        try {
+          const fallbackUnsub = onSnapshot(
+            staffCol,
+            (fallbackSnap) => {
+              const fallbackList = processSnapshot(fallbackSnap.docs);
+              // In-memory sort by createdAt descending
+              fallbackList.sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+              onUpdate(fallbackList);
+            },
+            (fallbackErr) => {
+              console.error('[StaffService] Firestore staff listener error:', fallbackErr);
+              if (onError) onError(fallbackErr);
+            }
+          );
+          return fallbackUnsub;
+        } catch (innerErr: any) {
+          if (onError) onError(innerErr);
+        }
+      }
+    );
+  } catch (err: any) {
+    console.error('[StaffService] Failed to establish Firestore staff subscription:', err);
+    if (onError) onError(err);
+    return () => {};
   }
 }
 
 /**
- * Create a new staff member in Firestore.
+ * Fetch all staff members directly from Firestore `staff` collection (Single Source of Truth).
+ */
+export async function getStaffMembers(): Promise<StaffMember[]> {
+  const firebase = getFirebaseInstance();
+
+  if (!firebase) {
+    return [DEFAULT_SUPER_ADMIN_STAFF];
+  }
+
+  try {
+    const q = query(collection(firebase.db, 'staff'), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    const list: StaffMember[] = [];
+
+    snapshot.forEach((docSnap) => {
+      const d = docSnap.data();
+      list.push({
+        id: docSnap.id,
+        fullName: d.fullName || 'Staff Member',
+        email: d.email || '',
+        avatarUrl: d.avatarUrl || '',
+        phone: d.phone || '',
+        role: (d.role as StaffRole) || 'SUPPORT',
+        status: (d.status as StaffStatus) || 'ACTIVE',
+        createdAt: d.createdAt || new Date().toISOString(),
+        updatedAt: d.updatedAt,
+        firebaseUid: d.firebaseUid,
+      });
+    });
+
+    const hasSuperAdmin = list.some(
+      (s) => s.email.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()
+    );
+
+    if (!hasSuperAdmin) {
+      list.unshift(DEFAULT_SUPER_ADMIN_STAFF);
+    }
+
+    return list;
+  } catch (err) {
+    console.warn('[StaffService] Failed getDocs with orderBy, attempting collection fallback:', err);
+    try {
+      const snapshot = await getDocs(collection(firebase.db, 'staff'));
+      const list: StaffMember[] = [];
+
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        list.push({
+          id: docSnap.id,
+          fullName: d.fullName || 'Staff Member',
+          email: d.email || '',
+          avatarUrl: d.avatarUrl || '',
+          phone: d.phone || '',
+          role: (d.role as StaffRole) || 'SUPPORT',
+          status: (d.status as StaffStatus) || 'ACTIVE',
+          createdAt: d.createdAt || new Date().toISOString(),
+          updatedAt: d.updatedAt,
+          firebaseUid: d.firebaseUid,
+        });
+      });
+
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const hasSuperAdmin = list.some(
+        (s) => s.email.toLowerCase() === DESIGNATED_ADMIN_EMAIL.toLowerCase()
+      );
+
+      if (!hasSuperAdmin) {
+        list.unshift(DEFAULT_SUPER_ADMIN_STAFF);
+      }
+
+      return list;
+    } catch (fallbackErr: any) {
+      console.error('[StaffService] Firestore read error:', fallbackErr);
+      throw fallbackErr;
+    }
+  }
+}
+
+/**
+ * Create a new staff member document in Firestore `staff` collection.
+ * Writes directly to Firestore and does NOT use browser-local storage.
  */
 export async function createStaffMember(staffData: {
   fullName: string;
@@ -107,74 +232,83 @@ export async function createStaffMember(staffData: {
   role: StaffRole;
   avatarUrl?: string;
   status?: StaffStatus;
+  firebaseUid?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   const emailLower = staffData.email.trim().toLowerCase();
-  if (!emailLower || !staffData.fullName.trim()) {
-    return { success: false, error: 'Full name and email are required.' };
+  const trimmedName = staffData.fullName.trim();
+
+  if (!emailLower || !trimmedName) {
+    return { success: false, error: 'Full name and email address are required.' };
   }
 
-  const staffId = `staff_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const firebase = getFirebaseInstance();
+  if (!firebase) {
+    return {
+      success: false,
+      error: 'Firebase is not initialized. Please verify your connection to project darex-portfolio.',
+    };
+  }
+
+  // Use firebaseUid as document ID if provided, otherwise a clean unique id
+  const staffId = staffData.firebaseUid || `staff_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
   const newStaff: StaffMember = {
     id: staffId,
-    fullName: staffData.fullName.trim(),
+    fullName: trimmedName,
     email: emailLower,
     phone: staffData.phone?.trim() || '',
     role: staffData.role,
     status: staffData.status || 'ACTIVE',
-    avatarUrl: staffData.avatarUrl || '',
+    avatarUrl: staffData.avatarUrl?.trim() || '',
     createdAt: new Date().toISOString(),
+    ...(staffData.firebaseUid ? { firebaseUid: staffData.firebaseUid } : {}),
   };
 
-  const firebase = getFirebaseInstance();
-  if (firebase) {
-    try {
-      await setDoc(doc(firebase.db, 'staff', staffId), newStaff);
-    } catch (err: unknown) {
-      console.error('Error saving staff to Firestore:', err);
-      // We will also update cache
-    }
+  try {
+    await setDoc(doc(firebase.db, 'staff', staffId), newStaff);
+    return { success: true, id: staffId };
+  } catch (err: unknown) {
+    console.error('[StaffService] Firestore write failed:', err);
+    const message = err instanceof Error ? err.message : 'Failed to write staff member to Firestore.';
+    return { success: false, error: message };
   }
-
-  // Update local cache
-  const current = getCachedStaff();
-  const updated = [newStaff, ...current.filter((s) => s.email.toLowerCase() !== emailLower)];
-  saveCachedStaff(updated);
-
-  return { success: true, id: staffId };
 }
 
 /**
- * Update staff member in Firestore.
+ * Update an existing staff member in Firestore `staff` collection.
  */
 export async function updateStaffMember(
   staffId: string,
   updates: Partial<Omit<StaffMember, 'id' | 'createdAt'>>
 ): Promise<{ success: boolean; error?: string }> {
   const firebase = getFirebaseInstance();
-  const updatedAt = new Date().toISOString();
-  const payload = { ...updates, updatedAt };
-
-  if (firebase) {
-    try {
-      await setDoc(doc(firebase.db, 'staff', staffId), payload, { merge: true });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update staff member in Firestore.';
-      return { success: false, error: message };
-    }
+  if (!firebase) {
+    return { success: false, error: 'Firebase is not initialized.' };
   }
 
-  // Update local cache
-  const current = getCachedStaff();
-  const updated = current.map((s) =>
-    s.id === staffId ? { ...s, ...updates, updatedAt } : s
-  );
-  saveCachedStaff(updated);
+  const updatedAt = new Date().toISOString();
+  const payload: Record<string, any> = { updatedAt };
 
-  return { success: true };
+  if (updates.fullName !== undefined) payload.fullName = updates.fullName.trim();
+  if (updates.email !== undefined) payload.email = updates.email.trim().toLowerCase();
+  if (updates.phone !== undefined) payload.phone = updates.phone.trim();
+  if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl.trim();
+  if (updates.role !== undefined) payload.role = updates.role;
+  if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.firebaseUid !== undefined) payload.firebaseUid = updates.firebaseUid;
+
+  try {
+    await setDoc(doc(firebase.db, 'staff', staffId), payload, { merge: true });
+    return { success: true };
+  } catch (err: unknown) {
+    console.error('[StaffService] Error updating staff member in Firestore:', err);
+    const message = err instanceof Error ? err.message : 'Failed to update staff member in Firestore.';
+    return { success: false, error: message };
+  }
 }
 
 /**
- * Toggle staff active/inactive status.
+ * Toggle staff active/inactive status in Firestore.
  */
 export async function toggleStaffStatus(
   staffId: string,
@@ -184,28 +318,28 @@ export async function toggleStaffStatus(
 }
 
 /**
- * Delete staff member record.
+ * Delete a staff member document from Firestore `staff` collection.
  */
 export async function deleteStaffMember(
   staffId: string
 ): Promise<{ success: boolean; error?: string }> {
   const firebase = getFirebaseInstance();
-  if (firebase) {
-    try {
-      await deleteDoc(doc(firebase.db, 'staff', staffId));
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to remove staff record from Firestore.';
-      return { success: false, error: message };
-    }
+  if (!firebase) {
+    return { success: false, error: 'Firebase is not initialized.' };
   }
 
-  const current = getCachedStaff();
-  saveCachedStaff(current.filter((s) => s.id !== staffId));
-  return { success: true };
+  try {
+    await deleteDoc(doc(firebase.db, 'staff', staffId));
+    return { success: true };
+  } catch (err: unknown) {
+    console.error('[StaffService] Error deleting staff record from Firestore:', err);
+    const message = err instanceof Error ? err.message : 'Failed to remove staff record from Firestore.';
+    return { success: false, error: message };
+  }
 }
 
 /**
- * Find staff member by email to identify their assigned role & status upon login.
+ * Find staff member by email in Firestore to verify assigned role and status.
  */
 export async function getStaffRoleByEmail(
   email: string
@@ -231,9 +365,7 @@ export async function getStaffRoleByEmail(
   const firebase = getFirebaseInstance();
   if (firebase) {
     try {
-      // Query staff collection
-      const q = query(collection(firebase.db, 'staff'));
-      const snap = await getDocs(q);
+      const snap = await getDocs(collection(firebase.db, 'staff'));
       let foundStaff: StaffMember | null = null;
 
       snap.forEach((d) => {
@@ -248,6 +380,7 @@ export async function getStaffRoleByEmail(
             createdAt: data.createdAt || new Date().toISOString(),
             phone: data.phone,
             avatarUrl: data.avatarUrl,
+            firebaseUid: data.firebaseUid,
           };
         }
       });
@@ -270,29 +403,8 @@ export async function getStaffRoleByEmail(
         };
       }
     } catch (err) {
-      console.warn('Failed to query staff in Firestore, checking local cache:', err);
+      console.warn('[StaffService] Firestore query error in getStaffRoleByEmail:', err);
     }
-  }
-
-  // Fallback to cached staff
-  const cached = getCachedStaff();
-  const localMatch = cached.find((s) => s.email.toLowerCase() === cleanEmail);
-  if (localMatch) {
-    if (localMatch.status === 'INACTIVE') {
-      return {
-        isAuthorized: false,
-        staff: localMatch,
-        role: localMatch.role,
-        isActive: false,
-        reason: 'This staff account has been deactivated.',
-      };
-    }
-    return {
-      isAuthorized: true,
-      staff: localMatch,
-      role: localMatch.role,
-      isActive: true,
-    };
   }
 
   return {
