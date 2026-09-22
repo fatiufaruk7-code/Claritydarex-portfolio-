@@ -48,6 +48,7 @@ import {
   DESIGNATED_ADMIN_EMAIL,
 } from '../services/adminAuthService';
 import {
+  subscribeToContactSubmissions,
   getContactSubmissions,
   toggleSubmissionRead,
   deleteSubmissionRecord,
@@ -131,7 +132,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
             setCurrentStaff(staffAuth.staffMember);
           }
           setAuthStatus('authorized');
-          loadData();
         } else {
           setAuthStatus('unauthorized');
         }
@@ -153,6 +153,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
 
     return () => unsubscribe();
   }, []);
+
+  // Real-time synchronization of contact submissions and staff directory across all devices
+  useEffect(() => {
+    if (authStatus !== 'authorized') return;
+
+    setIsLoadingData(true);
+    setDataError(null);
+
+    // Initial load of staff directory
+    getStaffMembers()
+      .then((staff) => setStaffList(staff))
+      .catch((err) => console.warn('Could not load staff list:', err));
+
+    // Live onSnapshot listener for Firestore contactSubmissions
+    const unsubscribeSubmissions = subscribeToContactSubmissions(
+      (realtimeList) => {
+        setSubmissions(realtimeList);
+        setIsLoadingData(false);
+        setDataError(null);
+
+        // Keep active modal in sync in real time
+        setActiveMessage((prevActive) => {
+          if (!prevActive || !prevActive.id) return prevActive;
+          const fresh = realtimeList.find((s) => s.id === prevActive.id);
+          return fresh || prevActive;
+        });
+      },
+      (err) => {
+        console.error('[AdminDashboard] Firestore real-time listener error:', err);
+        setIsLoadingData(false);
+        setDataError(
+          err.message?.includes('PERMISSION_DENIED')
+            ? 'Firestore access notice: Please ensure Cloud Firestore is enabled in Firebase Console for darex-portfolio and your account has authorized admin access.'
+            : err.message || 'Error connecting to real-time enquiries.'
+        );
+      }
+    );
+
+    return () => {
+      unsubscribeSubmissions();
+    };
+  }, [authStatus]);
 
   const loadData = async () => {
     setIsLoadingData(true);
@@ -191,20 +233,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     if (!submission.id) return;
     try {
       await toggleSubmissionRead(submission.id, submission.read);
-      setSubmissions((prev) =>
-        prev.map((item) =>
-          item.id === submission.id ? { ...item, read: !item.read } : item
-        )
-      );
-      if (activeMessage && activeMessage.id === submission.id) {
-        setActiveMessage({ ...activeMessage, read: !activeMessage.read });
-      }
+      // Real-time listener immediately synchronizes state across all admin sessions
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to update message status.');
     }
   };
 
   const handleEnquiryUpdate = (updated: ContactSubmission) => {
+    // Optimistic UI update while Firestore onSnapshot synchronizes across all devices
     setSubmissions((prev) =>
       prev.map((item) => (item.id === updated.id ? updated : item))
     );
@@ -216,7 +252,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     setIsDeleting(true);
     try {
       await deleteSubmissionRecord(deletingId);
-      setSubmissions((prev) => prev.filter((item) => item.id !== deletingId));
+      // Real-time listener immediately synchronizes state across all admin sessions
       if (activeMessage && activeMessage.id === deletingId) {
         setActiveMessage(null);
       }

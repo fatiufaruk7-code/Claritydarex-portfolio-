@@ -2,11 +2,14 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   deleteDoc,
   query,
   orderBy,
+  onSnapshot,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { getFirebaseInstance } from '../firebase/config';
 import type {
@@ -17,34 +20,59 @@ import type {
   StaffMember,
 } from '../types';
 
-const LOCAL_STORAGE_KEY = 'darex_contact_submissions_v2';
-const PRIMARY_COLLECTION = 'contactSubmissions';
-const LEGACY_COLLECTION = 'submissions';
+export const PRIMARY_COLLECTION = 'contactSubmissions';
 
-// Helper to get local submissions
-function getLocalSubmissions(): ContactSubmission[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch {
-    return [];
+/**
+ * Parses timestamp from Firestore (Timestamp object, ISO string, or fallback to current time)
+ */
+function parseTimestamp(val: any): string {
+  if (!val) return new Date().toISOString();
+  if (val && typeof val.toDate === 'function') {
+    return val.toDate().toISOString();
   }
+  if (typeof val === 'string') return val;
+  return new Date().toISOString();
 }
 
-// Helper to save local submissions
-function saveLocalSubmissions(list: ContactSubmission[]): void {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Could not save submissions to local storage', e);
-  }
+/**
+ * Maps a Firestore document snapshot to the ContactSubmission interface
+ */
+function mapDocToSubmission(id: string, data: Record<string, any>): ContactSubmission {
+  const createdAtIso = parseTimestamp(data.createdAt);
+  const updatedAtIso = parseTimestamp(data.updatedAt || data.createdAt);
+
+  return {
+    id,
+    name: data.name || '',
+    email: data.email || '',
+    phone: data.phone || '',
+    company: data.company || '',
+    projectType: data.projectType || data.subject || 'Website Development',
+    budget: data.budget || 'Flexible / Discussion',
+    timeline: data.timeline || 'Standard (3-4 weeks)',
+    message: data.message || '',
+    read: Boolean(data.read),
+    status: (data.status as EnquiryStatus) || (data.read ? 'RESOLVED' : 'NEW'),
+    assignedStaffId: data.assignedStaffId || data.assignedTo || undefined,
+    assignedStaffName: data.assignedStaffName || undefined,
+    assignedStaffEmail: data.assignedStaffEmail || undefined,
+    assignedStaffRole: data.assignedStaffRole || undefined,
+    internalNotes: Array.isArray(data.internalNotes) ? data.internalNotes : [],
+    activityHistory: Array.isArray(data.activityHistory) ? data.activityHistory : [],
+    createdAt: createdAtIso,
+    updatedAt: updatedAtIso,
+    source: 'firestore',
+  };
 }
 
+/**
+ * Submits a contact form enquiry directly to Firestore `contactSubmissions` collection.
+ * Uses serverTimestamp() for accurate multi-device synchronization.
+ */
 export async function submitContactForm(
   payload: Omit<ContactSubmission, 'id' | 'read' | 'createdAt'>
-): Promise<{ success: boolean; id: string; savedLocally?: boolean; savedFirestore?: boolean }> {
-  // 1. Validation
+): Promise<{ success: boolean; id: string; savedFirestore: boolean }> {
+  // 1. Client-side field validation
   const trimmedName = payload.name?.trim();
   const trimmedEmail = payload.email?.trim();
   const trimmedMessage = payload.message?.trim();
@@ -62,175 +90,142 @@ export async function submitContactForm(
     throw new Error('Please provide a short description of your project (minimum 8 characters).');
   }
 
-  const newId = 'sub_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-  const nowIso = new Date().toISOString();
+  // 2. Validate Firebase instance
+  const firebase = getFirebaseInstance();
+  if (!firebase) {
+    throw new Error(
+      'Firebase connection is unavailable. Please ensure Firebase environment configuration is present.'
+    );
+  }
 
   const initialActivity: EnquiryActivity = {
     id: `act_${Date.now()}_1`,
     action: 'Enquiry Created',
     user: trimmedName,
     role: 'Client',
-    timestamp: nowIso,
+    timestamp: new Date().toISOString(),
     details: `Inquiry submitted for ${payload.projectType || 'Website Development'}`,
   };
 
-  const submissionRecord: ContactSubmission = {
-    id: newId,
+  // 3. Document structure in Firestore `contactSubmissions`
+  const submissionDoc = {
     name: trimmedName,
     email: trimmedEmail,
     phone: payload.phone?.trim() || '',
+    subject: payload.projectType || 'Website Development',
     company: payload.company?.trim() || '',
     projectType: payload.projectType || 'Website Development',
     budget: payload.budget || 'Flexible / Discussion',
     timeline: payload.timeline || 'Standard (3-4 weeks)',
     message: trimmedMessage,
-    read: false,
     status: 'NEW',
+    read: false,
+    assignedTo: null,
+    assignedStaffId: null,
+    assignedStaffName: null,
+    assignedStaffEmail: null,
+    assignedStaffRole: null,
     internalNotes: [],
     activityHistory: [initialActivity],
-    createdAt: nowIso,
-    updatedAt: nowIso,
-    source: 'local',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    source: 'firestore',
   };
 
-  // Always save to resilient local database first
-  const currentLocal = getLocalSubmissions();
-  currentLocal.unshift(submissionRecord);
-  saveLocalSubmissions(currentLocal);
-
-  // Attempt to sync to Firestore `contactSubmissions` collection
-  let savedFirestore = false;
   try {
-    const firebase = getFirebaseInstance();
-    if (firebase) {
-      const docRef = await addDoc(collection(firebase.db, PRIMARY_COLLECTION), {
-        ...submissionRecord,
-        source: 'firestore',
-      });
-      submissionRecord.id = docRef.id;
-      submissionRecord.source = 'firestore';
-      savedFirestore = true;
+    const docRef = await addDoc(collection(firebase.db, PRIMARY_COLLECTION), submissionDoc);
+    return {
+      success: true,
+      id: docRef.id,
+      savedFirestore: true,
+    };
+  } catch (error: any) {
+    console.error('[Darex Contact] Firestore submission error:', error);
+    if (error?.code === 'permission-denied' || error?.message?.includes('PERMISSION_DENIED')) {
+      throw new Error(
+        'Submission failed: Firestore Cloud API or permissions issue. Ensure Cloud Firestore is enabled in Google Cloud / Firebase Console.'
+      );
     }
-  } catch (error) {
-    console.info(
-      'Firestore cloud sync deferred (offline/unconfigured). Inquiries preserved safely in local records.',
-      error
-    );
+    throw new Error(error?.message || 'Failed to submit contact enquiry to Firestore.');
   }
-
-  return {
-    success: true,
-    id: submissionRecord.id || newId,
-    savedLocally: true,
-    savedFirestore,
-  };
 }
 
 /**
- * Retrieve submissions from both contactSubmissions (primary) and legacy submissions collection,
- * merged cleanly with local storage.
+ * Subscribes to the `contactSubmissions` collection in real time using onSnapshot.
+ * Unsubscribes cleanly when invoked by component cleanup.
+ */
+export function subscribeToContactSubmissions(
+  callback: (submissions: ContactSubmission[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const firebase = getFirebaseInstance();
+  if (!firebase) {
+    if (onError) onError(new Error('Firebase is not configured.'));
+    return () => {};
+  }
+
+  try {
+    const q = query(
+      collection(firebase.db, PRIMARY_COLLECTION),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const submissions: ContactSubmission[] = snapshot.docs.map((docSnap) =>
+          mapDocToSubmission(docSnap.id, docSnap.data())
+        );
+
+        // Ensure proper chronological sort even during latency compensation for serverTimestamp
+        submissions.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        callback(submissions);
+      },
+      (err) => {
+        console.error('[Darex Submissions] Real-time onSnapshot listener error:', err);
+        if (onError) onError(err);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err: any) {
+    console.error('[Darex Submissions] Error initiating real-time listener:', err);
+    if (onError) onError(err);
+    return () => {};
+  }
+}
+
+/**
+ * Retrieve submissions directly from Firestore `contactSubmissions` collection.
  */
 export async function getContactSubmissions(): Promise<ContactSubmission[]> {
-  const localList = getLocalSubmissions();
-  let firestoreList: ContactSubmission[] = [];
-
   const firebase = getFirebaseInstance();
-  if (firebase) {
-    // 1. Fetch from contactSubmissions
-    try {
-      const qPrimary = query(collection(firebase.db, PRIMARY_COLLECTION), orderBy('createdAt', 'desc'));
-      const snapshotPrimary = await getDocs(qPrimary);
-      snapshotPrimary.forEach((docSnapshot) => {
-        const data = docSnapshot.data();
-        firestoreList.push({
-          id: docSnapshot.id,
-          name: data.name || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          company: data.company || '',
-          projectType: data.projectType || 'Website Development',
-          budget: data.budget || 'Flexible',
-          timeline: data.timeline || 'Standard',
-          message: data.message || '',
-          read: Boolean(data.read),
-          status: (data.status as EnquiryStatus) || (data.read ? 'RESOLVED' : 'NEW'),
-          assignedStaffId: data.assignedStaffId,
-          assignedStaffName: data.assignedStaffName,
-          assignedStaffEmail: data.assignedStaffEmail,
-          assignedStaffRole: data.assignedStaffRole,
-          internalNotes: Array.isArray(data.internalNotes) ? data.internalNotes : [],
-          activityHistory: Array.isArray(data.activityHistory) ? data.activityHistory : [],
-          createdAt: data.createdAt || new Date().toISOString(),
-          updatedAt: data.updatedAt,
-          source: 'firestore',
-        });
-      });
-    } catch (err) {
-      console.warn('Could not retrieve from contactSubmissions, checking legacy collection:', err);
-    }
-
-    // 2. Also check legacy `submissions` collection to ensure no past records are lost
-    try {
-      const qLegacy = query(collection(firebase.db, LEGACY_COLLECTION), orderBy('createdAt', 'desc'));
-      const snapshotLegacy = await getDocs(qLegacy);
-      snapshotLegacy.forEach((docSnapshot) => {
-        const data = docSnapshot.data();
-        // Only add if not already in firestoreList
-        if (!firestoreList.some((s) => s.id === docSnapshot.id)) {
-          firestoreList.push({
-            id: docSnapshot.id,
-            name: data.name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            company: data.company || '',
-            projectType: data.projectType || 'Website Development',
-            budget: data.budget || 'Flexible',
-            timeline: data.timeline || 'Standard',
-            message: data.message || '',
-            read: Boolean(data.read),
-            status: (data.status as EnquiryStatus) || (data.read ? 'RESOLVED' : 'NEW'),
-            assignedStaffId: data.assignedStaffId,
-            assignedStaffName: data.assignedStaffName,
-            assignedStaffEmail: data.assignedStaffEmail,
-            assignedStaffRole: data.assignedStaffRole,
-            internalNotes: Array.isArray(data.internalNotes) ? data.internalNotes : [],
-            activityHistory: Array.isArray(data.activityHistory) ? data.activityHistory : [],
-            createdAt: data.createdAt || new Date().toISOString(),
-            updatedAt: data.updatedAt,
-            source: 'firestore',
-          });
-        }
-      });
-    } catch (err) {
-      // Legacy collection empty or unavailable
-    }
+  if (!firebase) {
+    throw new Error('Firebase is not configured.');
   }
 
-  // Merge and deduplicate
-  const combinedMap = new Map<string, ContactSubmission>();
+  const q = query(
+    collection(firebase.db, PRIMARY_COLLECTION),
+    orderBy('createdAt', 'desc')
+  );
 
-  localList.forEach((item) => {
-    combinedMap.set(item.id || `${item.email}_${item.createdAt}`, {
-      status: 'NEW',
-      internalNotes: [],
-      activityHistory: [],
-      ...item,
-    });
-  });
+  const snapshot = await getDocs(q);
+  const submissions: ContactSubmission[] = snapshot.docs.map((docSnap) =>
+    mapDocToSubmission(docSnap.id, docSnap.data())
+  );
 
-  firestoreList.forEach((item) => {
-    combinedMap.set(item.id || `${item.email}_${item.createdAt}`, item);
-  });
+  submissions.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
-  const merged = Array.from(combinedMap.values())
-    .filter((item) => !item.id?.startsWith('sub_demo_'))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  return merged;
+  return submissions;
 }
 
 /**
- * Assign or reassign an enquiry to a staff member.
+ * Assign or reassign an enquiry to a staff member in Firestore.
  */
 export async function assignEnquiry(
   id: string,
@@ -239,7 +234,7 @@ export async function assignEnquiry(
 ): Promise<ContactSubmission> {
   const now = new Date().toISOString();
   const activity: EnquiryActivity = {
-    id: `act_${Date.now()}`,
+    id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     action: 'Enquiry Assigned',
     user: actor.name,
     role: actor.role,
@@ -253,14 +248,13 @@ export async function assignEnquiry(
     assignedStaffEmail: staff.email,
     assignedStaffRole: staff.role,
     status: 'ASSIGNED',
-    updatedAt: now,
   };
 
   return updateSubmissionFields(id, updates, activity);
 }
 
 /**
- * Update the status of an enquiry (e.g. NEW -> IN_PROGRESS -> RESOLVED -> CLOSED).
+ * Update the status of an enquiry (e.g. NEW -> IN_PROGRESS -> RESOLVED -> CLOSED) in Firestore.
  */
 export async function updateEnquiryStatus(
   id: string,
@@ -270,7 +264,7 @@ export async function updateEnquiryStatus(
 ): Promise<ContactSubmission> {
   const now = new Date().toISOString();
   const activity: EnquiryActivity = {
-    id: `act_${Date.now()}`,
+    id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     action:
       newStatus === 'RESOLVED'
         ? 'Enquiry Resolved'
@@ -288,14 +282,13 @@ export async function updateEnquiryStatus(
   const updates: Partial<ContactSubmission> = {
     status: newStatus,
     read: newStatus !== 'NEW',
-    updatedAt: now,
   };
 
   return updateSubmissionFields(id, updates, activity);
 }
 
 /**
- * Add an internal note to an enquiry.
+ * Add an internal note to an enquiry in Firestore.
  */
 export async function addInternalNote(
   id: string,
@@ -305,9 +298,23 @@ export async function addInternalNote(
   const trimmed = noteText.trim();
   if (!trimmed) throw new Error('Note content cannot be empty.');
 
+  const firebase = getFirebaseInstance();
+  if (!firebase) throw new Error('Firebase Firestore is not initialized.');
+
+  const docRef = doc(firebase.db, PRIMARY_COLLECTION, id);
+  const docSnap = await getDoc(docRef);
+  if (!docSnap.exists()) {
+    throw new Error('Enquiry document not found in Firestore.');
+  }
+
+  const currentData = docSnap.data();
+  const currentNotes: InternalNote[] = Array.isArray(currentData.internalNotes)
+    ? currentData.internalNotes
+    : [];
+
   const now = new Date().toISOString();
   const newNote: InternalNote = {
-    id: `note_${Date.now()}`,
+    id: `note_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     authorName: actor.name,
     authorEmail: actor.email,
     authorRole: actor.role,
@@ -315,8 +322,10 @@ export async function addInternalNote(
     createdAt: now,
   };
 
+  const updatedNotes = [...currentNotes, newNote];
+
   const activity: EnquiryActivity = {
-    id: `act_${Date.now()}`,
+    id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     action: 'Internal Note Added',
     user: actor.name,
     role: actor.role,
@@ -324,109 +333,86 @@ export async function addInternalNote(
     details: trimmed.length > 60 ? `${trimmed.substring(0, 60)}...` : trimmed,
   };
 
-  // Fetch current submission to append note
-  const list = getLocalSubmissions();
-  const existing = list.find((s) => s.id === id);
-  const currentNotes = existing?.internalNotes || [];
-  const updatedNotes = [...currentNotes, newNote];
-
   return updateSubmissionFields(
     id,
     {
       internalNotes: updatedNotes,
-      updatedAt: now,
     },
     activity
   );
 }
 
 /**
- * Helper to update fields on a submission locally and across Firestore.
+ * Directly updates fields on a Firestore submission document.
  */
-async function updateSubmissionFields(
+export async function updateSubmissionFields(
   id: string,
   updates: Partial<ContactSubmission>,
   newActivity?: EnquiryActivity
 ): Promise<ContactSubmission> {
-  const local = getLocalSubmissions();
-  let updatedRecord: ContactSubmission | null = null;
-
-  const updatedLocal = local.map((item) => {
-    if (item.id === id) {
-      const mergedActivities = newActivity
-        ? [...(item.activityHistory || []), newActivity]
-        : item.activityHistory || [];
-
-      updatedRecord = {
-        ...item,
-        ...updates,
-        activityHistory: mergedActivities,
-      };
-      return updatedRecord;
-    }
-    return item;
-  });
-
-  if (updatedRecord) {
-    saveLocalSubmissions(updatedLocal);
-  }
-
-  // Attempt Firestore update
   const firebase = getFirebaseInstance();
-  if (firebase) {
-    const firestoreUpdates: any = { ...updates };
-    if (newActivity && updatedRecord) {
-      firestoreUpdates.activityHistory = (updatedRecord as ContactSubmission).activityHistory;
-    }
-
-    try {
-      // Try primary collection first
-      const docRefPrimary = doc(firebase.db, PRIMARY_COLLECTION, id);
-      await updateDoc(docRefPrimary, firestoreUpdates);
-    } catch (e) {
-      try {
-        // Fallback to legacy collection if it was stored there
-        const docRefLegacy = doc(firebase.db, LEGACY_COLLECTION, id);
-        await updateDoc(docRefLegacy, firestoreUpdates);
-      } catch (err2) {
-        console.warn('Could not update Firestore document for enquiry:', id, err2);
-      }
-    }
+  if (!firebase) {
+    throw new Error('Firebase Firestore is not initialized.');
   }
 
-  if (!updatedRecord) {
-    throw new Error('Enquiry not found.');
+  const docRef = doc(firebase.db, PRIMARY_COLLECTION, id);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    throw new Error('Enquiry document not found in Firestore.');
   }
 
-  return updatedRecord;
+  const currentData = docSnap.data();
+  const currentActivities: EnquiryActivity[] = Array.isArray(currentData.activityHistory)
+    ? currentData.activityHistory
+    : [];
+  const mergedActivities = newActivity
+    ? [...currentActivities, newActivity]
+    : currentActivities;
+
+  const firestoreUpdates: Record<string, any> = {
+    ...updates,
+    activityHistory: mergedActivities,
+    updatedAt: serverTimestamp(),
+  };
+
+  // Synchronize assignedTo / assignedStaffName
+  if (updates.assignedStaffId !== undefined) {
+    firestoreUpdates.assignedTo = updates.assignedStaffId || null;
+  }
+  if (updates.assignedStaffName !== undefined) {
+    firestoreUpdates.assignedStaffName = updates.assignedStaffName || null;
+  }
+
+  await updateDoc(docRef, firestoreUpdates);
+
+  return mapDocToSubmission(docSnap.id, {
+    ...currentData,
+    ...updates,
+    activityHistory: mergedActivities,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
+/**
+ * Toggle read state of an enquiry in Firestore.
+ */
 export async function toggleSubmissionRead(id: string, currentReadStatus: boolean): Promise<void> {
   const newRead = !currentReadStatus;
   await updateSubmissionFields(id, {
     read: newRead,
     status: newRead ? 'IN_PROGRESS' : 'NEW',
-    updatedAt: new Date().toISOString(),
   });
 }
 
+/**
+ * Permanently delete a submission document from Firestore.
+ */
 export async function deleteSubmissionRecord(id: string): Promise<void> {
-  // Remove from local storage
-  const local = getLocalSubmissions();
-  const filtered = local.filter((item) => item.id !== id);
-  saveLocalSubmissions(filtered);
-
-  // Remove from Firestore if available
   const firebase = getFirebaseInstance();
-  if (firebase) {
-    try {
-      await deleteDoc(doc(firebase.db, PRIMARY_COLLECTION, id));
-    } catch (e) {
-      try {
-        await deleteDoc(doc(firebase.db, LEGACY_COLLECTION, id));
-      } catch (err) {
-        console.warn('Could not delete from Firestore', err);
-      }
-    }
+  if (!firebase) {
+    throw new Error('Firebase Firestore is not initialized.');
   }
+  await deleteDoc(doc(firebase.db, PRIMARY_COLLECTION, id));
 }
+
