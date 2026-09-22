@@ -35,6 +35,14 @@ import {
   Check,
   UserCheck,
   FileText,
+  LayoutDashboard,
+  FolderGit2,
+  Layers,
+  Award,
+  ArrowUpDown,
+  Bell,
+  ArrowRight,
+  ExternalLink,
 } from 'lucide-react';
 import { AdminLogin } from './AdminLogin';
 import { getFirebaseInstance } from '../firebase/config';
@@ -57,6 +65,10 @@ import { getStaffMembers } from '../services/staffService';
 import { SiteSettingsPanel } from '../components/admin/SiteSettingsPanel';
 import { StaffManagementPanel } from '../components/admin/StaffManagementPanel';
 import { EnquiryDetailModal } from '../components/admin/EnquiryDetailModal';
+import { ProjectsManagementPanel } from '../components/admin/ProjectsManagementPanel';
+import { ServicesManagementPanel } from '../components/admin/ServicesManagementPanel';
+import { TestimonialsManagementPanel } from '../components/admin/TestimonialsManagementPanel';
+import { PROJECTS_DATA } from '../data/projects';
 import type {
   ContactSubmission,
   EnquiryStatus,
@@ -68,7 +80,14 @@ interface AdminDashboardProps {
   onReturnToHome: () => void;
 }
 
-type DashboardTab = 'enquiries' | 'settings' | 'staff';
+export type DashboardTab =
+  | 'dashboard'
+  | 'messages'
+  | 'projects'
+  | 'services'
+  | 'testimonials'
+  | 'staff'
+  | 'settings';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -77,7 +96,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   >('loading');
   const [userRole, setUserRole] = useState<StaffRole>('SUPER_ADMIN');
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>('enquiries');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('dashboard');
 
   // Data states
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
@@ -90,6 +109,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [staffFilter, setStaffFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [dismissedNotification, setDismissedNotification] = useState(false);
 
   // Active detail modal
   const [activeMessage, setActiveMessage] = useState<ContactSubmission | null>(null);
@@ -398,9 +419,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     document.body.removeChild(link);
   };
 
-  // Filtered submissions list
+  const currentStaffEmailLower = (
+    currentUser?.email ||
+    getLocalAdminSession() ||
+    ''
+  ).toLowerCase();
+
+  const assignedEnquiryToStaff = useMemo(() => {
+    if (!currentStaffEmailLower) return null;
+    return submissions.find(
+      (s) =>
+        s.assignedStaffEmail?.toLowerCase() === currentStaffEmailLower &&
+        (s.status === 'ASSIGNED' || s.status === 'NEW')
+    );
+  }, [submissions, currentStaffEmailLower]);
+
+  // Filtered submissions list with status pills, assigned filter, and sorting
   const filteredSubmissions = useMemo(() => {
-    return submissions.filter((item) => {
+    const list = submissions.filter((item) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
@@ -411,10 +447,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
         (item.message && item.message.toLowerCase().includes(q));
 
       const itemStatus = item.status || (item.read ? 'IN_PROGRESS' : 'NEW');
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'unread' && !item.read) ||
-        itemStatus === statusFilter;
+
+      let matchesStatus = true;
+      if (statusFilter === 'my_enquiries') {
+        matchesStatus =
+          item.assignedStaffEmail?.toLowerCase() === currentStaffEmailLower;
+      } else if (statusFilter === 'all') {
+        matchesStatus = true;
+      } else if (statusFilter === 'unread') {
+        matchesStatus = !item.read;
+      } else {
+        matchesStatus = itemStatus === statusFilter;
+      }
 
       const matchesStaff =
         staffFilter === 'all' ||
@@ -426,7 +470,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
 
       return matchesSearch && matchesStatus && matchesStaff && matchesType;
     });
-  }, [submissions, searchQuery, statusFilter, staffFilter, typeFilter]);
+
+    return list.sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sortOrder === 'desc' ? tB - tA : tA - tB;
+    });
+  }, [
+    submissions,
+    searchQuery,
+    statusFilter,
+    staffFilter,
+    typeFilter,
+    sortOrder,
+    currentStaffEmailLower,
+  ]);
 
   // Distinct project types for dropdown filter
   const distinctProjectTypes = useMemo(() => {
@@ -437,27 +495,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     return Array.from(set);
   }, [submissions]);
 
-  // Metrics
+  // Real Firebase metrics (No fake statistics)
   const stats = useMemo(() => {
     const total = submissions.length;
     const newCount = submissions.filter(
       (s) => s.status === 'NEW' || (!s.status && !s.read)
     ).length;
+    const assignedCount = submissions.filter(
+      (s) => s.status === 'ASSIGNED'
+    ).length;
     const inProgressCount = submissions.filter(
-      (s) => s.status === 'IN_PROGRESS' || s.status === 'ASSIGNED'
+      (s) => s.status === 'IN_PROGRESS'
     ).length;
     const resolvedCount = submissions.filter(
       (s) => s.status === 'RESOLVED' || s.status === 'CLOSED'
     ).length;
+    const totalStaff = staffList.length;
     const activeStaffCount = staffList.filter((s) => s.status === 'ACTIVE').length;
+    const publishedProjects = PROJECTS_DATA.length;
 
-    return { total, newCount, inProgressCount, resolvedCount, activeStaffCount };
+    return {
+      total,
+      newCount,
+      assignedCount,
+      inProgressCount,
+      resolvedCount,
+      totalStaff,
+      activeStaffCount,
+      publishedProjects,
+    };
   }, [submissions, staffList]);
 
-  const canManageStaff = userRole === 'SUPER_ADMIN' || userRole === 'MANAGER';
-  const canEditSettings =
-    userRole === 'SUPER_ADMIN' || userRole === 'EDITOR' || userRole === 'DEVELOPER';
-  const canDelete = userRole === 'SUPER_ADMIN';
+  const isSuperAdmin = userRole === 'SUPER_ADMIN';
+  const canViewDashboard = true;
+  const canViewMessages = userRole !== 'EDITOR';
+  const canViewProjects =
+    userRole === 'SUPER_ADMIN' ||
+    userRole === 'MANAGER' ||
+    userRole === 'DEVELOPER' ||
+    userRole === 'EDITOR';
+  const canViewServices = userRole === 'SUPER_ADMIN' || userRole === 'EDITOR';
+  const canViewTestimonials =
+    userRole === 'SUPER_ADMIN' || userRole === 'MANAGER' || userRole === 'EDITOR';
+  const canViewStaff = userRole === 'SUPER_ADMIN' || userRole === 'MANAGER';
+  const canManageStaff = isSuperAdmin;
+  const canEditSettings = isSuperAdmin;
+  const canDelete = isSuperAdmin;
 
   if (authStatus === 'loading') {
     return (
@@ -661,29 +744,107 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
           </div>
         </motion.div>
 
-        {/* Primary Dashboard Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-800 mt-6 pb-2 overflow-x-auto scrollbar-none">
-          <button
-            onClick={() => setActiveTab('enquiries')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === 'enquiries'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Customer Enquiries</span>
-            {stats.newCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-slate-950 font-bold">
-                {stats.newCount}
+        {/* Navigation Tabs based on Role Permissions */}
+        <div className="flex items-center gap-1.5 border-b border-slate-800 mt-6 pb-2 overflow-x-auto scrollbar-none">
+          {canViewDashboard && (
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'dashboard'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Dashboard</span>
+            </button>
+          )}
+
+          {canViewMessages && (
+            <button
+              onClick={() => setActiveTab('messages')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'messages'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Messages</span>
+              {stats.newCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-slate-950 font-bold">
+                  {stats.newCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {canViewProjects && (
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'projects'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <FolderGit2 className="w-4 h-4" />
+              <span>Projects</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
+                {stats.publishedProjects}
               </span>
-            )}
-          </button>
+            </button>
+          )}
+
+          {canViewServices && (
+            <button
+              onClick={() => setActiveTab('services')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'services'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Services</span>
+            </button>
+          )}
+
+          {canViewTestimonials && (
+            <button
+              onClick={() => setActiveTab('testimonials')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'testimonials'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              <span>Testimonials</span>
+            </button>
+          )}
+
+          {canViewStaff && (
+            <button
+              onClick={() => setActiveTab('staff')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'staff'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Staff</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+                {stats.activeStaffCount}
+              </span>
+            </button>
+          )}
 
           {canEditSettings && (
             <button
               onClick={() => setActiveTab('settings')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'settings'
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900'
@@ -693,36 +854,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
               <span>Site Settings</span>
             </button>
           )}
-
-          {canManageStaff && (
-            <button
-              onClick={() => setActiveTab('staff')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-                activeTab === 'staff'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Staff Management</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
-                {stats.activeStaffCount}
-              </span>
-            </button>
-          )}
         </div>
 
-        {/* Tab 1: Customer Enquiries View */}
-        {activeTab === 'enquiries' && (
+        {/* In-Dashboard Staff Notification Alert */}
+        {assignedEnquiryToStaff && !dismissedNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-5 p-4 rounded-2xl bg-gradient-to-r from-blue-950/80 via-purple-950/60 to-slate-950 border border-blue-500/40 text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/40 shrink-0">
+                <Bell className="w-4 h-4 animate-bounce" />
+              </div>
+              <div className="text-xs">
+                <span className="font-bold text-white">
+                  New customer enquiry assigned to you:
+                </span>{' '}
+                <span className="text-blue-300 font-semibold">{assignedEnquiryToStaff.name}</span>{' '}
+                &bull;{' '}
+                <span className="font-mono text-purple-300">{assignedEnquiryToStaff.projectType}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                onClick={() => setActiveMessage(assignedEnquiryToStaff)}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-md"
+              >
+                View Enquiry
+              </button>
+              <button
+                onClick={() => setDismissedNotification(true)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+                title="Dismiss banner"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Tab 1: Dashboard Overview */}
+        {activeTab === 'dashboard' && (
           <div className="space-y-6 pt-6">
-            {/* Metrics Grid */}
+            {/* Real Metrics Grid - 8 Real Firebase Metrics */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+              className="grid grid-cols-2 md:grid-cols-4 gap-4"
             >
-              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
                 <div className="text-xs font-mono text-slate-400 font-medium uppercase">
                   Total Enquiries
                 </div>
@@ -732,9 +915,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                 <div className="text-[11px] text-slate-400 mt-1">Direct client requests</div>
               </div>
 
-              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
                 <div className="text-xs font-mono text-slate-400 font-medium uppercase">
-                  New / Unreviewed
+                  New Enquiries
                 </div>
                 <div className="text-2xl sm:text-3xl font-bold text-amber-400 font-mono mt-1">
                   {stats.newCount}
@@ -742,32 +925,316 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                 <div className="text-[11px] text-slate-400 mt-1">Pending initial review</div>
               </div>
 
-              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
                 <div className="text-xs font-mono text-slate-400 font-medium uppercase">
-                  In Progress
+                  Assigned Enquiries
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-purple-400 font-mono mt-1">
+                  {stats.assignedCount}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Assigned to team member</div>
+              </div>
+
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
+                <div className="text-xs font-mono text-slate-400 font-medium uppercase">
+                  In-Progress
                 </div>
                 <div className="text-2xl sm:text-3xl font-bold text-blue-400 font-mono mt-1">
                   {stats.inProgressCount}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1">Under active discussion</div>
+                <div className="text-[11px] text-slate-400 mt-1">Under active technical discussion</div>
               </div>
 
-              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-5 shadow-lg">
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
                 <div className="text-xs font-mono text-slate-400 font-medium uppercase">
-                  Resolved / Closed
+                  Resolved Enquiries
                 </div>
                 <div className="text-2xl sm:text-3xl font-bold text-emerald-400 font-mono mt-1">
                   {stats.resolvedCount}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1">Successfully handled</div>
+                <div className="text-[11px] text-slate-400 mt-1">Successfully fulfilled / closed</div>
+              </div>
+
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
+                <div className="text-xs font-mono text-slate-400 font-medium uppercase">
+                  Total Staff
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-white font-mono mt-1">
+                  {stats.totalStaff}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Registered team members</div>
+              </div>
+
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
+                <div className="text-xs font-mono text-slate-400 font-medium uppercase">
+                  Active Staff
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-indigo-400 font-mono mt-1">
+                  {stats.activeStaffCount}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Active access privileges</div>
+              </div>
+
+              <div className="bg-gradient-to-b from-[#111724] to-[#0c1018] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-lg">
+                <div className="text-xs font-mono text-slate-400 font-medium uppercase">
+                  Published Projects
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-sky-400 font-mono mt-1">
+                  {stats.publishedProjects}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">Live showcase deployments</div>
               </div>
             </motion.div>
+
+            {/* Quick Action Shortcuts */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <button
+                onClick={() => setActiveTab('messages')}
+                className="text-left bg-[#0e121a] hover:bg-slate-900 border border-slate-800/90 hover:border-blue-500/50 rounded-2xl p-4 transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="p-2.5 rounded-xl bg-blue-600/15 text-blue-400 border border-blue-500/30">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <h3 className="font-bold text-white text-sm mt-3">Customer Inquiries</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Review incoming requests, assign team members, and log internal notes.
+                </p>
+              </button>
+
+              {canViewProjects && (
+                <button
+                  onClick={() => setActiveTab('projects')}
+                  className="text-left bg-[#0e121a] hover:bg-slate-900 border border-slate-800/90 hover:border-blue-500/50 rounded-2xl p-4 transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-sky-600/15 text-sky-400 border border-sky-500/30">
+                      <FolderGit2 className="w-5 h-5" />
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-sky-400 group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                  <h3 className="font-bold text-white text-sm mt-3">Portfolio Projects</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Inspect case studies, architectures, benchmarks, and deployment URLs.
+                  </p>
+                </button>
+              )}
+
+              {canViewStaff && (
+                <button
+                  onClick={() => setActiveTab('staff')}
+                  className="text-left bg-[#0e121a] hover:bg-slate-900 border border-slate-800/90 hover:border-blue-500/50 rounded-2xl p-4 transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-purple-600/15 text-purple-400 border border-purple-500/30">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                  <h3 className="font-bold text-white text-sm mt-3">Staff Directory</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage team member roles, permissions, access status, and profile avatars.
+                  </p>
+                </button>
+              )}
+
+              {canEditSettings && (
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className="text-left bg-[#0e121a] hover:bg-slate-900 border border-slate-800/90 hover:border-blue-500/50 rounded-2xl p-4 transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-emerald-600/15 text-emerald-400 border border-emerald-500/30">
+                      <Globe className="w-5 h-5" />
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                  <h3 className="font-bold text-white text-sm mt-3">Site Settings</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure company metadata, verified contact info, social handles, and SEO.
+                  </p>
+                </button>
+              )}
+            </div>
+
+            {/* Recent Submissions Feed */}
+            <div className="bg-[#0e121a] border border-slate-800/90 rounded-2xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <h3 className="font-bold text-white text-base">Recent Customer Enquiries</h3>
+                </div>
+
+                <button
+                  onClick={() => setActiveTab('messages')}
+                  className="text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                >
+                  <span>View All Messages ({stats.total})</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {submissions.length === 0 ? (
+                <p className="text-xs text-slate-500 py-6 text-center">
+                  No customer enquiries received yet. Form submissions will appear here live.
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-800/80">
+                  {submissions.slice(0, 4).map((sub) => {
+                    const status = sub.status || (sub.read ? 'RESOLVED' : 'NEW');
+                    return (
+                      <div
+                        key={sub.id}
+                        className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-900/40 px-2 rounded-xl transition-colors"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm">{sub.name}</span>
+                            <span className="text-slate-500 font-mono text-xs">({sub.email})</span>
+                          </div>
+                          <div className="text-xs text-slate-400 flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-300">
+                              {sub.projectType}
+                            </span>
+                            <span>&bull;</span>
+                            <span className="font-mono text-[11px] text-slate-500">
+                              {new Date(sub.createdAt || Date.now()).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold border ${
+                              status === 'NEW'
+                                ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                                : status === 'ASSIGNED'
+                                ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                                : status === 'IN_PROGRESS'
+                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            }`}
+                          >
+                            {status}
+                          </span>
+
+                          <button
+                            onClick={() => setActiveMessage(sub)}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-semibold transition-colors"
+                          >
+                            View Ticket
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Messages / Customer Enquiries View */}
+        {activeTab === 'messages' && (
+          <div className="space-y-6 pt-6">
+            {/* Quick Status Tabs (Section 6 & 18) */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  statusFilter === 'all'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                All ({stats.total})
+              </button>
+
+              <button
+                onClick={() => setStatusFilter('my_enquiries')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  statusFilter === 'my_enquiries'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-slate-900 text-purple-300 hover:text-white border border-purple-500/30'
+                }`}
+              >
+                My Enquiries (
+                {
+                  submissions.filter(
+                    (s) => s.assignedStaffEmail?.toLowerCase() === currentStaffEmailLower
+                  ).length
+                }
+                )
+              </button>
+
+              <button
+                onClick={() => setStatusFilter('NEW')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  statusFilter === 'NEW'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                New ({stats.newCount})
+              </button>
+
+              <button
+                onClick={() => setStatusFilter('ASSIGNED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  statusFilter === 'ASSIGNED'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                Assigned ({stats.assignedCount})
+              </button>
+
+              <button
+                onClick={() => setStatusFilter('IN_PROGRESS')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  statusFilter === 'IN_PROGRESS'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                In Progress ({stats.inProgressCount})
+              </button>
+
+              <button
+                onClick={() => setStatusFilter('RESOLVED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  statusFilter === 'RESOLVED'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                Resolved ({stats.resolvedCount})
+              </button>
+
+              <button
+                onClick={() => setStatusFilter('CLOSED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  statusFilter === 'CLOSED'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                Closed ({submissions.filter((s) => s.status === 'CLOSED').length})
+              </button>
+            </div>
 
             {/* Filter & Search Bar */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
+              transition={{ duration: 0.4 }}
               className="bg-[#0e121a] border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4"
             >
               {/* Search Input */}
@@ -785,7 +1252,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                 />
               </div>
 
-              {/* Status & Staff Filters */}
+              {/* Status, Staff, Category Filters & Sort */}
               <div className="flex flex-wrap items-center gap-2.5">
                 <select
                   value={statusFilter}
@@ -793,6 +1260,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                   className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
                 >
                   <option value="all">All Statuses</option>
+                  <option value="my_enquiries">My Assigned Enquiries</option>
                   <option value="NEW">New Inquiries</option>
                   <option value="ASSIGNED">Assigned</option>
                   <option value="IN_PROGRESS">In Progress</option>
@@ -828,6 +1296,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
                     ))}
                   </select>
                 )}
+
+                {/* Sort Toggle (Section 18) */}
+                <button
+                  onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white hover:border-slate-700 transition-colors"
+                  title="Toggle sort order"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-blue-400" />
+                  <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
+                </button>
               </div>
             </motion.div>
 
@@ -1011,20 +1489,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
           </div>
         )}
 
-        {/* Tab 2: Site Settings View */}
-        {activeTab === 'settings' && canEditSettings && (
+        {/* Tab 3: Projects View */}
+        {activeTab === 'projects' && canViewProjects && (
           <div className="pt-6">
-            <SiteSettingsPanel />
+            <ProjectsManagementPanel currentRole={userRole} />
           </div>
         )}
 
-        {/* Tab 3: Staff Management View */}
-        {activeTab === 'staff' && canManageStaff && (
+        {/* Tab 4: Services View */}
+        {activeTab === 'services' && canViewServices && (
+          <div className="pt-6">
+            <ServicesManagementPanel currentRole={userRole} />
+          </div>
+        )}
+
+        {/* Tab 5: Testimonials View */}
+        {activeTab === 'testimonials' && canViewTestimonials && (
+          <div className="pt-6">
+            <TestimonialsManagementPanel currentRole={userRole} />
+          </div>
+        )}
+
+        {/* Tab 6: Staff Management View */}
+        {activeTab === 'staff' && canViewStaff && (
           <div className="pt-6">
             <StaffManagementPanel
               currentRole={userRole}
               currentEmail={currentUser?.email || undefined}
             />
+          </div>
+        )}
+
+        {/* Tab 7: Site Settings View */}
+        {activeTab === 'settings' && canEditSettings && (
+          <div className="pt-6">
+            <SiteSettingsPanel />
           </div>
         )}
       </div>

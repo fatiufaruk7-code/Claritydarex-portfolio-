@@ -52,12 +52,14 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
     fullName: string;
     email: string;
     phone: string;
+    avatarUrl: string;
     role: StaffRole;
     status: StaffStatus;
   }>({
     fullName: '',
     email: '',
     phone: '',
+    avatarUrl: '',
     role: 'SUPPORT',
     status: 'ACTIVE',
   });
@@ -74,8 +76,8 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
     text: string;
   } | null>(null);
 
-  const canManage = currentRole === 'SUPER_ADMIN' || currentRole === 'MANAGER';
   const isSuperAdmin = currentRole === 'SUPER_ADMIN';
+  const canManage = isSuperAdmin;
 
   useEffect(() => {
     loadStaff();
@@ -99,6 +101,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
       fullName: '',
       email: '',
       phone: '',
+      avatarUrl: '',
       role: 'SUPPORT',
       status: 'ACTIVE',
     });
@@ -112,6 +115,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
       fullName: staff.fullName,
       email: staff.email,
       phone: staff.phone || '',
+      avatarUrl: staff.avatarUrl || '',
       role: staff.role,
       status: staff.status,
     });
@@ -148,6 +152,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
           fullName: trimmedName,
           email: trimmedEmail,
           phone: formData.phone.trim(),
+          avatarUrl: formData.avatarUrl.trim(),
           role: formData.role,
           status: formData.status,
         });
@@ -177,6 +182,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
           fullName: trimmedName,
           email: trimmedEmail,
           phone: formData.phone.trim(),
+          avatarUrl: formData.avatarUrl.trim(),
           role: formData.role,
           status: formData.status,
         });
@@ -208,7 +214,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
 
     try {
       const newStatus = staff.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      const res = await toggleStaffStatus(staff.id, staff.status);
+      const res = await toggleStaffStatus(staff.id, newStatus);
       if (res.success) {
         setStaffList((prev) =>
           prev.map((s) => (s.id === staff.id ? { ...s, status: newStatus } : s))
@@ -388,6 +394,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
                   <th scope="col" className="px-5 py-3">Assigned Role</th>
                   <th scope="col" className="px-5 py-3">Contact</th>
                   <th scope="col" className="px-5 py-3">Status</th>
+                  <th scope="col" className="px-5 py-3">Created</th>
                   <th scope="col" className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -404,10 +411,19 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
                       {/* Name & Avatar */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 p-[1px] shrink-0">
-                            <div className="w-full h-full bg-[#111726] rounded-[11px] flex items-center justify-center font-bold text-white font-mono text-xs">
-                              {staff.fullName.slice(0, 2).toUpperCase()}
-                            </div>
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 p-[1px] shrink-0 overflow-hidden">
+                            {staff.avatarUrl ? (
+                              <img
+                                src={staff.avatarUrl}
+                                alt={staff.fullName}
+                                className="w-full h-full object-cover rounded-[11px]"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-[#111726] rounded-[11px] flex items-center justify-center font-bold text-white font-mono text-xs">
+                                {staff.fullName.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
                           </div>
                           <div>
                             <div className="font-bold text-white flex items-center gap-1.5">
@@ -467,6 +483,15 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
                           />
                           {staff.status}
                         </span>
+                      </td>
+
+                      {/* Created Date */}
+                      <td className="px-5 py-3.5 whitespace-nowrap text-slate-400 font-mono text-[11px]">
+                        {new Date(staff.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </td>
 
                       {/* Actions */}
@@ -605,6 +630,21 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
                     }
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-blue-500"
                     placeholder="08012345678"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
+                    Profile Photo / Avatar URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.avatarUrl}
+                    onChange={(e) =>
+                      setFormData({ ...formData, avatarUrl: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-blue-500"
+                    placeholder="https://images.unsplash.com/... or avatar image URL"
                   />
                 </div>
 

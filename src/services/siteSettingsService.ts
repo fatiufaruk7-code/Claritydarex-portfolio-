@@ -16,8 +16,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   },
   socialMedia: {
     instagram: 'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5',
-    twitter: 'https://twitter.com/darexhq',
-    github: 'https://github.com/darex',
+    twitter: '',
+    github: '',
     whatsapp: 'https://wa.me/2348137941486',
   },
   hero: {

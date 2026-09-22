@@ -67,10 +67,10 @@ service cloud.firestore {
 
     // Site settings collection (e.g. siteSettings/main):
     // Public can read to render company details, hero, footer, and social links.
-    // Authorized administrators and staff can edit site configuration.
+    // Strictly restricted to SUPER_ADMIN for modifications.
     match /siteSettings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin() || isStaff();
+      allow write: if isAdmin();
     }
 
     // Legacy settings collection:

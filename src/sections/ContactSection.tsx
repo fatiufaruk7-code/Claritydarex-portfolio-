@@ -338,9 +338,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                 Corporate Social Presence
               </div>
               <div className="flex items-center gap-3">
-                {(settings.socialMedia?.github || COMPANY_INFO.socialLinks.github) && (
+                {settings.socialMedia?.github?.trim() && (
                   <a
-                    href={settings.socialMedia?.github || COMPANY_INFO.socialLinks.github}
+                    href={settings.socialMedia.github.trim()}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Darex on GitHub"
@@ -349,9 +349,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                     <Github className="w-4 h-4" strokeWidth={1.4} />
                   </a>
                 )}
-                {(settings.socialMedia?.twitter || COMPANY_INFO.socialLinks.twitter) && (
+                {settings.socialMedia?.twitter?.trim() && (
                   <a
-                    href={settings.socialMedia?.twitter || COMPANY_INFO.socialLinks.twitter}
+                    href={settings.socialMedia.twitter.trim()}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Darex on X/Twitter"
@@ -360,9 +360,12 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                     <Twitter className="w-4 h-4" strokeWidth={1.4} />
                   </a>
                 )}
-                {(settings.socialMedia?.instagram || COMPANY_INFO.socialLinks.instagram) && (
+                {(settings.socialMedia?.instagram?.trim() || 'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5') && (
                   <a
-                    href={settings.socialMedia?.instagram || COMPANY_INFO.socialLinks.instagram}
+                    href={
+                      settings.socialMedia?.instagram?.trim() ||
+                      'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5'
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Faruk Fatiu on Instagram"
@@ -372,12 +375,12 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                     <Instagram className="w-4 h-4" strokeWidth={1.4} />
                   </a>
                 )}
-                {(settings.socialMedia?.whatsapp || settings.contact?.whatsappNumber || COMPANY_INFO.socialLinks.whatsapp) && (
+                {(settings.socialMedia?.whatsapp?.trim() || settings.contact?.whatsappNumber || COMPANY_INFO.socialLinks.whatsapp) && (
                   <a
                     href={
-                      settings.socialMedia?.whatsapp
-                        ? (settings.socialMedia.whatsapp.startsWith('http')
-                            ? settings.socialMedia.whatsapp
+                      settings.socialMedia?.whatsapp?.trim()
+                        ? (settings.socialMedia.whatsapp.trim().startsWith('http')
+                            ? settings.socialMedia.whatsapp.trim()
                             : `https://wa.me/${settings.socialMedia.whatsapp.replace(/[^0-9]/g, '')}`)
                         : whatsappUrl()
                     }

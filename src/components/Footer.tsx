@@ -18,10 +18,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
   };
 
   const socialLinks = {
-    github: settings.socialMedia?.github || COMPANY_INFO.socialLinks.github,
-    twitter: settings.socialMedia?.twitter || COMPANY_INFO.socialLinks.twitter,
-    instagram: settings.socialMedia?.instagram || COMPANY_INFO.socialLinks.instagram,
-    whatsapp: settings.socialMedia?.whatsapp || COMPANY_INFO.socialLinks.whatsapp,
+    github: settings.socialMedia?.github?.trim() || '',
+    twitter: settings.socialMedia?.twitter?.trim() || '',
+    instagram:
+      settings.socialMedia?.instagram?.trim() ||
+      'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5',
+    whatsapp:
+      settings.socialMedia?.whatsapp?.trim() ||
+      (settings.contact?.whatsappNumber
+        ? `https://wa.me/${settings.contact.whatsappNumber.replace(/[^0-9]/g, '')}`
+        : 'https://wa.me/2348137941486'),
   };
 
   return (
