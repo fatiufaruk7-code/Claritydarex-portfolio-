@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
 import { submitContactForm } from '../services/submissionService';
+import { subscribeToServices } from '../services/servicesService';
 import { ClassicIcon } from '../components/ClassicIcon';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 
@@ -52,6 +53,29 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSubmissionTime, setLastSubmissionTime] = useState<number | null>(null);
+  const [availableServices, setAvailableServices] = useState<string[]>([
+    'Website Development',
+    'Web Design',
+    'UI/UX Design',
+    'Business Website Solutions',
+    'E-commerce Development',
+    'Website Maintenance',
+    'Enterprise Web Application',
+    'Other Custom Inquiry',
+  ]);
+
+  // Synchronize available services dynamically from Firestore
+  React.useEffect(() => {
+    const unsubscribe = subscribeToServices((list) => {
+      const activeTitles = list
+        .filter((s) => s.status !== 'DRAFT')
+        .map((s) => s.title);
+      if (activeTitles.length > 0) {
+        setAvailableServices([...new Set([...activeTitles, 'Other Custom Inquiry'])]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Update selectedProjectType if parent changes it
   React.useEffect(() => {
@@ -577,15 +601,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                         onChange={handleChange}
                         className="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-800 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors cursor-pointer"
                       >
-                        <option value="Website Development">Website Development</option>
-                        <option value="Web Design">Web Design</option>
-                        <option value="UI/UX Design">UI/UX Design</option>
-                        <option value="Business Website Solutions">Business Website Solutions</option>
-                        <option value="E-commerce Development">E-commerce Development</option>
-                        <option value="Website Maintenance">Website Maintenance</option>
-                        <option value="Digital Solutions">Digital Solutions</option>
-                        <option value="Enterprise Web Application">Enterprise Web Application</option>
-                        <option value="Other Custom Inquiry">Other Custom Inquiry</option>
+                        {availableServices.map((serviceName) => (
+                          <option key={serviceName} value={serviceName}>
+                            {serviceName}
+                          </option>
+                        ))}
                       </select>
                     </div>
 

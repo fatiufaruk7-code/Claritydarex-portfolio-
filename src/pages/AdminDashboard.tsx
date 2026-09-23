@@ -68,10 +68,13 @@ import { EnquiryDetailModal } from '../components/admin/EnquiryDetailModal';
 import { ProjectsManagementPanel } from '../components/admin/ProjectsManagementPanel';
 import { ServicesManagementPanel } from '../components/admin/ServicesManagementPanel';
 import { TestimonialsManagementPanel } from '../components/admin/TestimonialsManagementPanel';
-import { PROJECTS_DATA } from '../data/projects';
+import { subscribeToProjects } from '../services/projectsService';
+import { subscribeToServices } from '../services/servicesService';
 import type {
   ContactSubmission,
   EnquiryStatus,
+  ProjectItem,
+  ServiceItem,
   StaffMember,
   StaffRole,
 } from '../types';
@@ -101,6 +104,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
   // Data states
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [projectsList, setProjectsList] = useState<ProjectItem[]>([]);
+  const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
@@ -217,9 +222,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
       }
     );
 
+    // Live onSnapshot listener for Firestore projects
+    const unsubscribeProjects = subscribeToProjects(
+      (realtimeProjects) => {
+        setProjectsList(realtimeProjects);
+      },
+      (err) => {
+        console.warn('[AdminDashboard] Firestore projects real-time notice:', err);
+      }
+    );
+
+    // Live onSnapshot listener for Firestore services
+    const unsubscribeServices = subscribeToServices(
+      (realtimeServices) => {
+        setServicesList(realtimeServices);
+      },
+      (err) => {
+        console.warn('[AdminDashboard] Firestore services real-time notice:', err);
+      }
+    );
+
     return () => {
       unsubscribeStaff();
       unsubscribeSubmissions();
+      unsubscribeProjects();
+      unsubscribeServices();
     };
   }, [authStatus]);
 
@@ -518,7 +545,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
     ).length;
     const totalStaff = staffList.length;
     const activeStaffCount = staffList.filter((s) => s.status === 'ACTIVE').length;
-    const publishedProjects = PROJECTS_DATA.length;
+    const publishedProjects = projectsList.filter((p) => p.status !== 'DRAFT').length;
+    const totalServices = servicesList.length;
+    const activeServices = servicesList.filter((s) => s.status !== 'DRAFT').length;
 
     return {
       total,
@@ -529,20 +558,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
       totalStaff,
       activeStaffCount,
       publishedProjects,
+      totalServices,
+      activeServices,
     };
-  }, [submissions, staffList]);
+  }, [submissions, staffList, projectsList, servicesList]);
 
   const isSuperAdmin = userRole === 'SUPER_ADMIN';
   const canViewDashboard = true;
-  const canViewMessages = userRole !== 'EDITOR';
+  const canViewMessages =
+    userRole === 'SUPER_ADMIN' ||
+    userRole === 'MANAGER' ||
+    userRole === 'SUPPORT';
   const canViewProjects =
     userRole === 'SUPER_ADMIN' ||
     userRole === 'MANAGER' ||
     userRole === 'DEVELOPER' ||
     userRole === 'EDITOR';
-  const canViewServices = userRole === 'SUPER_ADMIN' || userRole === 'EDITOR';
+  const canViewServices =
+    userRole === 'SUPER_ADMIN' ||
+    userRole === 'MANAGER' ||
+    userRole === 'DEVELOPER' ||
+    userRole === 'EDITOR';
   const canViewTestimonials =
-    userRole === 'SUPER_ADMIN' || userRole === 'MANAGER' || userRole === 'EDITOR';
+    userRole === 'SUPER_ADMIN' ||
+    userRole === 'MANAGER' ||
+    userRole === 'DEVELOPER' ||
+    userRole === 'EDITOR';
   const canViewStaff = userRole === 'SUPER_ADMIN' || userRole === 'MANAGER';
   const canManageStaff = isSuperAdmin;
   const canEditSettings = isSuperAdmin;
@@ -1498,21 +1539,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToHome }
         {/* Tab 3: Projects View */}
         {activeTab === 'projects' && canViewProjects && (
           <div className="pt-6">
-            <ProjectsManagementPanel currentRole={userRole} />
+            <ProjectsManagementPanel
+              currentRole={userRole}
+              currentEmail={currentUser?.email || getLocalAdminSession() || undefined}
+            />
           </div>
         )}
 
         {/* Tab 4: Services View */}
         {activeTab === 'services' && canViewServices && (
           <div className="pt-6">
-            <ServicesManagementPanel currentRole={userRole} />
+            <ServicesManagementPanel
+              currentRole={userRole}
+              currentEmail={currentUser?.email || getLocalAdminSession() || undefined}
+            />
           </div>
         )}
 
         {/* Tab 5: Testimonials View */}
         {activeTab === 'testimonials' && canViewTestimonials && (
           <div className="pt-6">
-            <TestimonialsManagementPanel currentRole={userRole} />
+            <TestimonialsManagementPanel
+              currentRole={userRole}
+              currentEmail={currentUser?.email || getLocalAdminSession() || undefined}
+            />
           </div>
         )}
 

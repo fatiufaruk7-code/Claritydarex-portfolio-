@@ -101,21 +101,31 @@ service cloud.firestore {
     }
 
     // Projects collection:
+    // Publicly readable. Content managers, editors, developers, managers, and super admins can write.
     match /projects/{projectId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isStaff() || isAdmin();
     }
 
     // Services collection:
+    // Publicly readable. Content managers, editors, developers, managers, and super admins can write.
     match /services/{serviceId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isStaff() || isAdmin();
     }
 
     // Testimonials collection:
+    // Publicly readable. Content managers, editors, developers, managers, and super admins can write.
     match /testimonials/{testimonialId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isStaff() || isAdmin();
+    }
+
+    // Engineering commitments collection:
+    // Publicly readable. Content managers, editors, developers, managers, and super admins can write.
+    match /commitments/{commitmentId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff() || isAdmin();
     }
   }
 }

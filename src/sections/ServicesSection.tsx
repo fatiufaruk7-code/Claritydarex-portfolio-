@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   Code2,
@@ -12,14 +12,33 @@ import {
   Check,
   type LucideIcon,
 } from 'lucide-react';
+import { subscribeToServices } from '../services/servicesService';
 import { SERVICES_DATA } from '../data/services';
 import { ClassicIcon } from '../components/ClassicIcon';
+import type { ServiceItem } from '../types';
 
 interface ServicesSectionProps {
   onSelectService: (serviceName: string) => void;
 }
 
 export const ServicesSection: React.FC<ServicesSectionProps> = ({ onSelectService }) => {
+  const [services, setServices] = useState<ServiceItem[]>(SERVICES_DATA);
+
+  // Synchronize services from Firestore single source of truth
+  useEffect(() => {
+    const unsubscribe = subscribeToServices(
+      (realtimeServices) => {
+        const active = realtimeServices.filter((s) => s.status !== 'DRAFT');
+        setServices(active.length > 0 ? active : realtimeServices);
+      },
+      (err) => {
+        console.warn('[ServicesSection] Using fallback service data:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const getIconComponent = (iconName: string): LucideIcon => {
     switch (iconName) {
       case 'Code2':
@@ -43,7 +62,6 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ onSelectServic
   return (
     <section id="services" className="py-24 bg-[#090a0f] border-t border-slate-800/80 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         {/* Header with animation */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -67,7 +85,7 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ onSelectServic
 
         {/* Services Grid with Stagger */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {SERVICES_DATA.map((service, index) => (
+          {services.map((service, index) => (
             <motion.div
               key={service.id}
               initial={{ opacity: 0, y: 24 }}
@@ -98,31 +116,33 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({ onSelectServic
                   {service.description}
                 </p>
 
-                {/* Feature Bullet Points */}
-                <div className="mt-6 pt-5 border-t border-slate-800/80 space-y-2">
-                  {service.features.map((feat, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
-                      <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" strokeWidth={1.5} />
-                      <span>{feat}</span>
+                {/* Key Features List */}
+                <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-2.5">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-2 font-semibold">
+                    Key Scope Deliverables
+                  </span>
+                  {service.features.map((feature, fIdx) => (
+                    <div key={fIdx} className="flex items-center gap-2 text-xs text-slate-300">
+                      <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span>{feature}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Bottom Inquire CTA */}
-              <div className="mt-7 pt-4">
+              {/* Action Link */}
+              <div className="mt-8 pt-4">
                 <button
                   onClick={() => onSelectService(service.title)}
-                  className="w-full flex items-center justify-between text-xs font-semibold text-slate-300 group-hover:text-white py-2.5 px-3.5 rounded-xl bg-slate-900/80 border border-slate-800 group-hover:border-blue-500/40 group-hover:bg-blue-600 transition-all shadow-sm"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300 group-hover:translate-x-1 transition-all cursor-pointer"
                 >
-                  <span>Inquire for {service.title}</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" strokeWidth={1.5} />
+                  <span>Request Proposal for this Service</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </motion.div>
           ))}
         </div>
-
       </div>
     </section>
   );

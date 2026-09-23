@@ -1,10 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { UserCheck, Key, CheckCircle, ShieldCheck, Shield, Sparkles, type LucideIcon } from 'lucide-react';
+import {
+  UserCheck,
+  Key,
+  CheckCircle,
+  ShieldCheck,
+  Shield,
+  Sparkles,
+  Star,
+  Quote,
+  type LucideIcon,
+} from 'lucide-react';
+import {
+  subscribeToTestimonials,
+  subscribeToCommitments,
+} from '../services/testimonialsService';
 import { COMMITMENTS_DATA } from '../data/testimonials';
 import { ClassicIcon, type ClassicIconVariant } from '../components/ClassicIcon';
+import type { CommitmentItem, TestimonialItem } from '../types';
 
 export const TestimonialsSection: React.FC = () => {
+  const [commitments, setCommitments] = useState<CommitmentItem[]>(COMMITMENTS_DATA);
+  const [testimonials, setTestimonials] = useState<TestimonialItem[]>([]);
+
+  // Synchronize commitments and testimonials from Firestore
+  useEffect(() => {
+    const unsubCommitments = subscribeToCommitments((items) => {
+      if (items && items.length > 0) {
+        setCommitments(items);
+      }
+    });
+
+    const unsubTestimonials = subscribeToTestimonials((items) => {
+      const published = items.filter((t) => t.published !== false);
+      setTestimonials(published);
+    });
+
+    return () => {
+      unsubCommitments();
+      unsubTestimonials();
+    };
+  }, []);
+
   const getIconData = (iconName: string): { icon: LucideIcon; variant: ClassicIconVariant } => {
     switch (iconName) {
       case 'UserCheck':
@@ -22,7 +59,6 @@ export const TestimonialsSection: React.FC = () => {
   return (
     <section id="commitments" className="py-24 bg-[#090a0f] border-t border-slate-800/80 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -45,7 +81,7 @@ export const TestimonialsSection: React.FC = () => {
 
         {/* Commitments Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {COMMITMENTS_DATA.map((item, index) => {
+          {commitments.map((item, index) => {
             const { icon, variant } = getIconData(item.iconName);
             return (
               <motion.div
@@ -88,6 +124,66 @@ export const TestimonialsSection: React.FC = () => {
           })}
         </div>
 
+        {/* Published Client Testimonials (if available) */}
+        {testimonials.length > 0 && (
+          <div className="mt-16 pt-12 border-t border-slate-800/80 space-y-8">
+            <div className="max-w-2xl">
+              <span className="text-xs font-mono text-blue-400 uppercase tracking-wider font-semibold">
+                VERIFIED PARTNER FEEDBACK
+              </span>
+              <h3 className="text-2xl font-bold text-white tracking-tight mt-1">
+                Client Testimonials & Performance Endorsements
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {testimonials.map((t) => (
+                <motion.div
+                  key={t.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="bg-[#0e121a] border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-lg space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-amber-400">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < t.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-700'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <Quote className="w-6 h-6 text-blue-500/30" />
+                    </div>
+
+                    <p className="text-sm text-slate-300 italic leading-relaxed">
+                      "{t.quote}"
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-blue-900/40 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-300">
+                        {t.avatarText}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">{t.clientName}</h4>
+                        <p className="text-xs text-slate-400">
+                          {t.clientRole} {t.company && `&bull; ${t.company}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Transparent Review Policy Banner */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -99,19 +195,21 @@ export const TestimonialsSection: React.FC = () => {
           <div className="flex items-center gap-3.5">
             <ClassicIcon icon={Sparkles} size="sm" variant="sapphire" strokeWidth={1.4} />
             <div>
-              <div className="text-sm font-semibold text-white">
-                Authentic Reviews Policy
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5 max-w-3xl">
-                We believe in complete professional honesty. We never publish synthetic reviews or fabricated client personas. Real client reviews will be published only with verified client authorization.
+              <h3 className="text-sm font-semibold text-white">
+                Darex Quality & Milestone Transparency Commitment
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Every project is subject to milestone code reviews, automated CI verification, and guaranteed handover warranties.
               </p>
             </div>
           </div>
-          <div className="text-xs font-mono text-blue-400 px-3 py-1 rounded-full bg-blue-950/40 border border-blue-800/30 shrink-0">
-            100% VERIFIED & HONEST
-          </div>
+          <a
+            href="#contact"
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 transition-all whitespace-nowrap cursor-pointer"
+          >
+            Start Your Project
+          </a>
         </motion.div>
-
       </div>
     </section>
   );

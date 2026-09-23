@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ExternalLink, ArrowRight, Layers } from 'lucide-react';
+import { subscribeToProjects } from '../services/projectsService';
 import { PROJECTS_DATA } from '../data/projects';
 import type { ProjectItem } from '../types';
 
@@ -8,20 +9,45 @@ interface ProjectsSectionProps {
   onSelectProject: (project: ProjectItem) => void;
 }
 
+const DEFAULT_CATEGORIES = ['All', 'Corporate', 'Web Apps', 'E-commerce', 'Portfolio', 'Portals'];
+
 export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ onSelectProject }) => {
+  const [projects, setProjects] = useState<ProjectItem[]>(PROJECTS_DATA);
   const [activeCategory, setActiveCategory] = useState<string>('All');
 
-  const categories = ['All', 'Corporate', 'Web Apps', 'E-commerce', 'Portfolio', 'Portals'];
+  // Real-time synchronization from Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeToProjects(
+      (realtimeProjects) => {
+        const published = realtimeProjects.filter((p) => p.status !== 'DRAFT');
+        setProjects(published.length > 0 ? published : realtimeProjects);
+      },
+      (err) => {
+        console.warn('[ProjectsSection] Using fallback project data:', err);
+      }
+    );
 
-  const filteredProjects =
-    activeCategory === 'All'
-      ? PROJECTS_DATA
-      : PROJECTS_DATA.filter((p) => p.category === activeCategory);
+    return () => unsubscribe();
+  }, []);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    set.add('All');
+    projects.forEach((p) => {
+      if (p.category) set.add(p.category);
+    });
+    DEFAULT_CATEGORIES.forEach((c) => set.add(c));
+    return Array.from(set);
+  }, [projects]);
+
+  const filteredProjects = useMemo(() => {
+    if (activeCategory === 'All') return projects;
+    return projects.filter((p) => p.category.toLowerCase() === activeCategory.toLowerCase());
+  }, [projects, activeCategory]);
 
   return (
     <section id="projects" className="py-24 bg-[#07090e] border-t border-slate-800/80 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         {/* Section Title */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -50,7 +76,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ onSelectProjec
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  activeCategory === cat
+                  activeCategory.toLowerCase() === cat.toLowerCase()
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                     : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
                 }`}
@@ -93,49 +119,66 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ onSelectProjec
                     </div>
                   </div>
 
-                  {/* Content */}
+                  {/* Project Content */}
                   <div className="p-6">
-                    <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                    <div className="flex items-center justify-between text-xs font-mono text-slate-500 mb-2">
+                      <span>{project.client || 'Client Showcase'}</span>
+                      <span>{project.year}</span>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
                       {project.title}
                     </h3>
-                    <p className="mt-3 text-sm text-slate-300 line-clamp-3 leading-relaxed">
+
+                    <p className="mt-2 text-sm text-slate-300 line-clamp-2 leading-relaxed">
                       {project.shortDescription}
                     </p>
 
-                    {/* Technology Tags */}
-                    <div className="mt-5 flex flex-wrap gap-1.5">
-                      {project.technologies.slice(0, 3).map((tech, idx) => (
+                    {/* Technologies Tags */}
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {project.technologies.slice(0, 3).map((tech, tIdx) => (
                         <span
-                          key={idx}
-                          className="px-2.5 py-0.5 rounded-md text-[11px] font-mono text-slate-400 bg-slate-900 border border-slate-800"
+                          key={tIdx}
+                          className="px-2 py-0.5 rounded-md bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-400"
                         >
                           {tech}
                         </span>
                       ))}
                       {project.technologies.length > 3 && (
-                        <span className="px-2 py-0.5 rounded-md text-[11px] font-mono text-slate-500 bg-slate-900 border border-slate-800">
-                          +{project.technologies.length - 3} more
+                        <span className="px-1.5 py-0.5 rounded-md text-[11px] font-mono text-slate-500">
+                          +{project.technologies.length - 3}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Action Button */}
-                <div className="p-6 pt-0">
+                {/* Footer Action Bar */}
+                <div className="p-6 pt-0 flex items-center justify-between border-t border-slate-800/60 mt-4">
                   <button
                     onClick={() => onSelectProject(project)}
-                    className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-blue-600 transition-all duration-200 group-hover:shadow-[0_4px_16px_rgba(37,99,235,0.25)] border border-slate-700/60 hover:border-blue-500 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300 transition-colors pt-4 cursor-pointer"
                   >
-                    <span>View Project Details</span>
-                    <ExternalLink className="w-4 h-4" strokeWidth={1.5} />
+                    <span>View Architecture Specs</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
+
+                  {project.liveUrl && (
+                    <a
+                      href={project.liveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 mt-4 transition-colors"
+                      title="Launch live demonstration"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
         </motion.div>
-
       </div>
     </section>
   );

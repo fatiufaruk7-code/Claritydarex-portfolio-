@@ -101,12 +101,18 @@ export interface ServiceItem {
   iconName: string;
   features: string[];
   tag: string;
+  status?: 'ACTIVE' | 'DRAFT';
+  pricing?: string;
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface ProjectItem {
   id: string;
   title: string;
-  category: 'E-commerce' | 'Corporate' | 'Web Apps' | 'Portals' | 'Portfolio';
+  category: 'E-commerce' | 'Corporate' | 'Web Apps' | 'Portals' | 'Portfolio' | string;
   shortDescription: string;
   fullDescription: string;
   image: string;
@@ -115,6 +121,11 @@ export interface ProjectItem {
   client?: string;
   year: string;
   results: string[];
+  status?: 'PUBLISHED' | 'DRAFT';
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface TestimonialItem {
@@ -126,6 +137,11 @@ export interface TestimonialItem {
   quote: string;
   rating: number;
   projectDelivered: string;
+  published?: boolean;
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface CommitmentItem {
@@ -135,6 +151,9 @@ export interface CommitmentItem {
   description: string;
   iconName: string;
   guarantee: string;
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ProcessStep {
