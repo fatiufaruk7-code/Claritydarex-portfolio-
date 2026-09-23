@@ -26,6 +26,25 @@ export const DEFAULT_SUPER_ADMIN_STAFF: StaffMember = {
 };
 
 /**
+ * Formats Firestore errors into clear, human-actionable instructions.
+ */
+export function formatFirestoreError(err: unknown): string {
+  if (!err) return 'An unexpected error occurred.';
+  const message = err instanceof Error ? err.message : String(err);
+  if (
+    message.includes('Cloud Firestore API has not been used') ||
+    message.includes('SERVICE_DISABLED') ||
+    message.includes('PERMISSION_DENIED')
+  ) {
+    return (
+      'Cloud Firestore database is not yet enabled for project "darex-portfolio". ' +
+      'Please open Firebase Console (https://console.firebase.google.com/project/darex-portfolio/firestore) and click "Create database" to activate cloud synchronization.'
+    );
+  }
+  return message;
+}
+
+/**
  * Ensures the primary Super Admin profile is physically seeded into the Firestore `staff` collection.
  * This guarantees both Chrome and Opera Mini see the lead administrator directly in Firestore.
  */
@@ -98,47 +117,65 @@ export function subscribeToStaffMembers(
     return list;
   };
 
+  let activeUnsubscribe: Unsubscribe = () => {};
+  let isUnsubscribed = false;
+
   try {
     const q = query(staffCol, orderBy('createdAt', 'desc'));
 
-    return onSnapshot(
+    activeUnsubscribe = onSnapshot(
       q,
       { includeMetadataChanges: true },
       (snapshot) => {
+        if (isUnsubscribed) return;
         const staffList = processSnapshot(snapshot.docs);
         onUpdate(staffList);
       },
       (err) => {
+        if (isUnsubscribed) return;
         console.warn('[StaffService] onSnapshot orderBy query error, falling back to direct collection listener:', err);
 
         // Fallback: If compound index or ordering fails, subscribe directly to collection and sort in memory
         try {
-          const fallbackUnsub = onSnapshot(
+          activeUnsubscribe = onSnapshot(
             staffCol,
             (fallbackSnap) => {
+              if (isUnsubscribed) return;
               const fallbackList = processSnapshot(fallbackSnap.docs);
-              // In-memory sort by createdAt descending
               fallbackList.sort(
                 (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
               );
               onUpdate(fallbackList);
             },
             (fallbackErr) => {
+              if (isUnsubscribed) return;
               console.error('[StaffService] Firestore staff listener error:', fallbackErr);
-              if (onError) onError(fallbackErr);
+              onUpdate([DEFAULT_SUPER_ADMIN_STAFF]);
+              if (onError) onError(new Error(formatFirestoreError(fallbackErr)));
             }
           );
-          return fallbackUnsub;
         } catch (innerErr: any) {
-          if (onError) onError(innerErr);
+          if (isUnsubscribed) return;
+          onUpdate([DEFAULT_SUPER_ADMIN_STAFF]);
+          if (onError) onError(new Error(formatFirestoreError(innerErr)));
         }
       }
     );
   } catch (err: any) {
     console.error('[StaffService] Failed to establish Firestore staff subscription:', err);
-    if (onError) onError(err);
+    onUpdate([DEFAULT_SUPER_ADMIN_STAFF]);
+    if (onError) onError(new Error(formatFirestoreError(err)));
     return () => {};
   }
+
+  return () => {
+    isUnsubscribed = true;
+    try {
+      activeUnsubscribe();
+    } catch {
+      // ignore
+    }
+  };
 }
 
 /**
@@ -269,8 +306,7 @@ export async function createStaffMember(staffData: {
     return { success: true, id: staffId };
   } catch (err: unknown) {
     console.error('[StaffService] Firestore write failed:', err);
-    const message = err instanceof Error ? err.message : 'Failed to write staff member to Firestore.';
-    return { success: false, error: message };
+    return { success: false, error: formatFirestoreError(err) };
   }
 }
 
@@ -302,8 +338,7 @@ export async function updateStaffMember(
     return { success: true };
   } catch (err: unknown) {
     console.error('[StaffService] Error updating staff member in Firestore:', err);
-    const message = err instanceof Error ? err.message : 'Failed to update staff member in Firestore.';
-    return { success: false, error: message };
+    return { success: false, error: formatFirestoreError(err) };
   }
 }
 
@@ -333,8 +368,7 @@ export async function deleteStaffMember(
     return { success: true };
   } catch (err: unknown) {
     console.error('[StaffService] Error deleting staff record from Firestore:', err);
-    const message = err instanceof Error ? err.message : 'Failed to remove staff record from Firestore.';
-    return { success: false, error: message };
+    return { success: false, error: formatFirestoreError(err) };
   }
 }
 

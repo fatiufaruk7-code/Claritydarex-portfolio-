@@ -96,11 +96,7 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
       (err) => {
         console.error('[StaffManagementPanel] Real-time staff error:', err);
         setIsLoading(false);
-        setSyncError(
-          err.message?.includes('PERMISSION_DENIED')
-            ? 'Firestore access restricted: verify Cloud Firestore API is enabled and your account has authorized admin privileges in darex-portfolio.'
-            : err.message || 'Error connecting to Firestore staff collection.'
-        );
+        setSyncError(err.message || 'Error connecting to Firestore staff collection.');
       }
     );
 
@@ -332,10 +328,20 @@ export const StaffManagementPanel: React.FC<StaffManagementPanelProps> = ({
       {/* Sync Error Notice */}
       {syncError && (
         <div className="p-3.5 rounded-xl text-xs flex items-center justify-between gap-2.5 bg-amber-950/60 border border-amber-800/60 text-amber-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>{syncError}</span>
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-semibold text-amber-300">Cloud Sync Status:</span>
+              <p className="text-amber-200/90 leading-relaxed">{syncError}</p>
+            </div>
           </div>
+          <button
+            onClick={() => setSyncError(null)}
+            className="text-amber-400/80 hover:text-amber-200 p-1 shrink-0"
+            title="Dismiss notice"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
