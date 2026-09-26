@@ -1,39 +1,3 @@
-export type StaffRole = 'SUPER_ADMIN' | 'MANAGER' | 'SUPPORT' | 'DEVELOPER' | 'EDITOR';
-export type StaffStatus = 'ACTIVE' | 'INACTIVE';
-
-export interface StaffMember {
-  id: string;
-  fullName: string;
-  email: string;
-  avatarUrl?: string;
-  phone?: string;
-  role: StaffRole;
-  status: StaffStatus;
-  createdAt: string;
-  updatedAt?: string;
-  firebaseUid?: string;
-}
-
-export type EnquiryStatus = 'NEW' | 'ASSIGNED' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-
-export interface InternalNote {
-  id: string;
-  authorName: string;
-  authorEmail: string;
-  authorRole: StaffRole | string;
-  text: string;
-  createdAt: string;
-}
-
-export interface EnquiryActivity {
-  id: string;
-  action: string;
-  user: string;
-  role?: string;
-  timestamp: string;
-  details?: string;
-}
-
 export interface ContactSubmission {
   id?: string;
   name: string;
@@ -44,17 +8,8 @@ export interface ContactSubmission {
   budget?: string;
   timeline?: string;
   message: string;
-  read: boolean;
-  createdAt: string;
-  status?: EnquiryStatus;
-  assignedStaffId?: string;
-  assignedStaffName?: string;
-  assignedStaffEmail?: string;
-  assignedStaffRole?: StaffRole | string;
-  internalNotes?: InternalNote[];
-  activityHistory?: EnquiryActivity[];
-  updatedAt?: string;
-  source?: 'firestore' | 'local';
+  read?: boolean;
+  createdAt?: string;
 }
 
 export interface SiteSettings {
@@ -90,8 +45,6 @@ export interface SiteSettings {
     description: string;
     ogImageUrl: string;
   };
-  updatedAt?: string;
-  updatedBy?: string;
 }
 
 export interface ServiceItem {
@@ -101,12 +54,8 @@ export interface ServiceItem {
   iconName: string;
   features: string[];
   tag: string;
-  status?: 'ACTIVE' | 'DRAFT';
   pricing?: string;
   order?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  updatedBy?: string;
 }
 
 export interface ProjectItem {
@@ -121,11 +70,7 @@ export interface ProjectItem {
   client?: string;
   year: string;
   results: string[];
-  status?: 'PUBLISHED' | 'DRAFT';
   order?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  updatedBy?: string;
 }
 
 export interface TestimonialItem {
@@ -139,9 +84,6 @@ export interface TestimonialItem {
   projectDelivered: string;
   published?: boolean;
   order?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  updatedBy?: string;
 }
 
 export interface CommitmentItem {
@@ -152,8 +94,6 @@ export interface CommitmentItem {
   iconName: string;
   guarantee: string;
   order?: number;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface ProcessStep {

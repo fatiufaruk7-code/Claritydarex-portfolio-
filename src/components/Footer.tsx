@@ -1,16 +1,15 @@
 import React from 'react';
-import { ArrowUp, Github, Twitter, Instagram, MessageCircle, Globe, ExternalLink, Shield } from 'lucide-react';
+import { ArrowUp, Github, Twitter, Instagram, MessageCircle, Globe, ExternalLink } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
 import { BrandLogo } from './BrandLogo';
 import { PWAInstallButton } from './PWAInstallButton';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 
 interface FooterProps {
-  onNavigateToView: (view: 'home' | 'admin') => void;
   onScrollToSection: (sectionId: string) => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSection }) => {
+export const Footer: React.FC<FooterProps> = ({ onScrollToSection }) => {
   const { settings } = useSiteSettings();
 
   const scrollToTop = () => {
@@ -18,16 +17,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
   };
 
   const socialLinks = {
-    github: settings.socialMedia?.github?.trim() || '',
-    twitter: settings.socialMedia?.twitter?.trim() || '',
+    github: settings.socialMedia?.github?.trim() || COMPANY_INFO.socialLinks.github || '',
+    twitter: settings.socialMedia?.twitter?.trim() || COMPANY_INFO.socialLinks.twitter || '',
     instagram:
       settings.socialMedia?.instagram?.trim() ||
+      COMPANY_INFO.socialLinks.instagram ||
       'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5',
     whatsapp:
       settings.socialMedia?.whatsapp?.trim() ||
-      (settings.contact?.whatsappNumber
-        ? `https://wa.me/${settings.contact.whatsappNumber.replace(/[^0-9]/g, '')}`
-        : 'https://wa.me/2348137941486'),
+      COMPANY_INFO.socialLinks.whatsapp ||
+      'https://wa.me/2348137941486',
   };
 
   return (
@@ -65,32 +64,28 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
                   <Twitter className="w-4 h-4" strokeWidth={1.4} />
                 </a>
               )}
-              {socialLinks.instagram && (
-                <a
-                  href={socialLinks.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Instagram Profile"
-                  className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <Instagram className="w-4 h-4" strokeWidth={1.4} />
-                </a>
-              )}
-              {socialLinks.whatsapp && (
-                <a
-                  href={
-                    socialLinks.whatsapp.startsWith('http')
-                      ? socialLinks.whatsapp
-                      : `https://wa.me/${socialLinks.whatsapp.replace(/[^0-9]/g, '')}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="WhatsApp"
-                  className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
-                >
-                  <MessageCircle className="w-4 h-4" strokeWidth={1.4} />
-                </a>
-              )}
+              <a
+                href={socialLinks.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram Profile"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
+              >
+                <Instagram className="w-4 h-4" strokeWidth={1.4} />
+              </a>
+              <a
+                href={
+                  socialLinks.whatsapp.startsWith('http')
+                    ? socialLinks.whatsapp
+                    : `https://wa.me/${socialLinks.whatsapp.replace(/[^0-9]/g, '')}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp"
+                className="w-9 h-9 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
+              >
+                <MessageCircle className="w-4 h-4" strokeWidth={1.4} />
+              </a>
             </div>
           </div>
 
@@ -103,7 +98,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('home')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Home
                 </button>
@@ -111,7 +106,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('about')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   About Us
                 </button>
@@ -119,7 +114,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('services')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Services
                 </button>
@@ -127,7 +122,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('projects')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Case Studies
                 </button>
@@ -135,7 +130,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('why-darex')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Why Darex
                 </button>
@@ -143,7 +138,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('contact')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Contact
                 </button>
@@ -160,7 +155,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('services')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Website Development
                 </button>
@@ -168,7 +163,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('services')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   UI/UX & Design Systems
                 </button>
@@ -176,7 +171,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('services')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   E-commerce Platforms
                 </button>
@@ -184,7 +179,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('services')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Corporate Portals
                 </button>
@@ -192,7 +187,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
               <li>
                 <button
                   onClick={() => onScrollToSection('services')}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   Maintenance & Support
                 </button>
@@ -200,7 +195,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
             </ul>
           </div>
 
-          {/* Contact Details & Admin portal access */}
+          {/* Contact Details */}
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-slate-300 font-semibold mb-4">
               Office
@@ -229,20 +224,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
                   <ExternalLink className="w-3 h-3 opacity-70" strokeWidth={1.5} />
                 </a>
               </li>
-              <li className="pt-3 flex flex-col gap-2">
-                {/* Discrete Admin Link */}
-                <button
-                  onClick={() => onNavigateToView('admin')}
-                  id="footer-admin-link"
-                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 transition-colors"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Admin Portal</span>
-                </button>
-
-                <div>
-                  <PWAInstallButton variant="footer" />
-                </div>
+              <li className="pt-3">
+                <PWAInstallButton variant="footer" />
               </li>
             </ul>
           </div>
@@ -259,7 +242,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToView, onScrollToSect
             <span>Enterprise Quality & Security</span>
             <button
               onClick={scrollToTop}
-              className="flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
             >
               <span>Back to Top</span>
               <ArrowUp className="w-3.5 h-3.5" />

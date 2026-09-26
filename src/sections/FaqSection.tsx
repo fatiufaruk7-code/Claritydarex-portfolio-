@@ -16,7 +16,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: 'What core technologies and frameworks does Darex build with?',
     answer:
-      'We specialize in modern, scalable technology stacks: React, TypeScript, Next.js, Vite, Tailwind CSS, Node.js, Express, Firebase/Firestore, PostgreSQL, and cloud deployments on Cloud Run, Vercel, and AWS. Every codebase is optimized for sub-second page loads, SEO indexing, and strict security rules.',
+      'We specialize in modern, scalable technology stacks: React, TypeScript, Next.js, Vite, Tailwind CSS, Node.js, Express, PostgreSQL, REST APIs, and cloud deployments on Cloud Run, Vercel, and AWS. Every codebase is optimized for sub-second page loads, SEO indexing, and robust security.',
   },
   {
     question: 'Can Darex redesign or modernize our existing website?',

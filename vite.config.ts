@@ -57,7 +57,7 @@ export default defineConfig(() => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
           navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/__/, /^\/api/, /firestore\.googleapis\.com/],
+          navigateFallbackDenylist: [/^\/__/, /^\/api/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,

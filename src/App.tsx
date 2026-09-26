@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
-import { AdminDashboard } from './pages/AdminDashboard';
 import { Footer } from './components/Footer';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { OfflineFallback } from './components/OfflineFallback';
@@ -10,7 +9,6 @@ import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'admin'>('home');
   const isOnline = useOnlineStatus();
   const [dismissedOfflineFallback, setDismissedOfflineFallback] = useState(false);
 
@@ -21,48 +19,10 @@ export default function App() {
     }
   }, [isOnline]);
 
-  useEffect(() => {
-    // Check initial URL pathname or hash
-    const syncViewFromUrl = () => {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
-      if (path === '/admin' || hash === '#/admin' || hash === '#admin') {
-        setCurrentView('admin');
-      } else {
-        setCurrentView('home');
-      }
-    };
-
-    syncViewFromUrl();
-    window.addEventListener('popstate', syncViewFromUrl);
-    return () => window.removeEventListener('popstate', syncViewFromUrl);
-  }, []);
-
-  const handleNavigateToView = (view: 'home' | 'admin') => {
-    setCurrentView(view);
-    if (view === 'admin') {
-      window.history.pushState({}, '', '/admin');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      window.history.pushState({}, '', '/');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
   const handleScrollToSection = (sectionId: string) => {
-    if (currentView !== 'home') {
-      handleNavigateToView('home');
-      setTimeout(() => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    } else {
-      const element = document.getElementById(sectionId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -75,10 +35,7 @@ export default function App() {
         <OfflineIndicator hideBottomBanner={isShowingOfflineFallback} />
 
         {/* Sticky Top Navigation */}
-        <Navbar
-          currentView={currentView}
-          onNavigateToView={handleNavigateToView}
-        />
+        <Navbar />
 
         {/* Main View Router with Motion Transitions */}
         <div className="flex-1">
@@ -100,7 +57,7 @@ export default function App() {
                   onBrowseCachedAnyway={() => setDismissedOfflineFallback(true)}
                 />
               </motion.div>
-            ) : currentView === 'home' ? (
+            ) : (
               <motion.div
                 key="home-view"
                 initial={{ opacity: 0 }}
@@ -110,26 +67,13 @@ export default function App() {
               >
                 <HomePage />
               </motion.div>
-            ) : (
-              <motion.div
-                key="admin-view"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-              >
-                <AdminDashboard onReturnToHome={() => handleNavigateToView('home')} />
-              </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Global Footer (shown on public site when not in offline fallback mode) */}
-        {!isShowingOfflineFallback && currentView === 'home' && (
-          <Footer
-            onNavigateToView={handleNavigateToView}
-            onScrollToSection={handleScrollToSection}
-          />
+        {/* Global Footer (shown when not in offline fallback mode) */}
+        {!isShowingOfflineFallback && (
+          <Footer onScrollToSection={handleScrollToSection} />
         )}
       </div>
     </SiteSettingsProvider>

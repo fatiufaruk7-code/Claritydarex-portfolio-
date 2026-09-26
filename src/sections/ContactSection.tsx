@@ -19,8 +19,12 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { COMPANY_INFO } from '../data/company';
-import { submitContactForm } from '../services/submissionService';
-import { subscribeToServices } from '../services/servicesService';
+import { SERVICES_DATA } from '../data/services';
+import {
+  submitContactInquiry,
+  buildWhatsAppInquiryUrl,
+  buildMailtoInquiryUrl,
+} from '../services/contactService';
 import { ClassicIcon } from '../components/ClassicIcon';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 
@@ -53,29 +57,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSubmissionTime, setLastSubmissionTime] = useState<number | null>(null);
-  const [availableServices, setAvailableServices] = useState<string[]>([
-    'Website Development',
-    'Web Design',
-    'UI/UX Design',
-    'Business Website Solutions',
-    'E-commerce Development',
-    'Website Maintenance',
-    'Enterprise Web Application',
-    'Other Custom Inquiry',
-  ]);
 
-  // Synchronize available services dynamically from Firestore
-  React.useEffect(() => {
-    const unsubscribe = subscribeToServices((list) => {
-      const activeTitles = list
-        .filter((s) => s.status !== 'DRAFT')
-        .map((s) => s.title);
-      if (activeTitles.length > 0) {
-        setAvailableServices([...new Set([...activeTitles, 'Other Custom Inquiry'])]);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const availableServices = [
+    ...SERVICES_DATA.map((s) => s.title),
+    'Other Custom Inquiry',
+  ];
 
   // Update selectedProjectType if parent changes it
   React.useEffect(() => {
@@ -99,7 +85,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
 
     // Prevent duplicate accidental rapid clicks
     const now = Date.now();
-    if (lastSubmissionTime && now - lastSubmissionTime < 5000) {
+    if (lastSubmissionTime && now - lastSubmissionTime < 4000) {
       setErrorMessage('Your submission is being processed. Please wait a moment.');
       return;
     }
@@ -128,7 +114,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
     setErrorMessage(null);
 
     try {
-      await submitContactForm(formData);
+      await submitContactInquiry(formData);
       setSubmittedData({
         name: trimmedName,
         email: trimmedEmail,
@@ -140,7 +126,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
       setSubmittedSuccess(true);
       setLastSubmissionTime(now);
 
-      // Reset input state
+      // Reset form input state
       setFormData({
         name: '',
         email: '',
@@ -159,22 +145,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
     }
   };
 
-  // Pre-fill WhatsApp message text
-  const whatsappUrl = (details?: { name?: string; type?: string; message?: string }) => {
-    const text = details
-      ? `Hello Faruk, my name is ${details.name || 'a client'}. I am inquiring about ${details.type || 'a project'} on Darex:\n\n"${details.message || ''}"`
-      : `Hello Faruk, I am visiting Darex and would like to discuss a new digital project.`;
-    return `https://wa.me/2348137941486?text=${encodeURIComponent(text)}`;
-  };
+  const instagramLink =
+    settings.socialMedia?.instagram?.trim() ||
+    'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5';
 
-  // Pre-fill Mailto URL
-  const mailtoUrl = (details?: { name?: string; type?: string; message?: string; email?: string }) => {
-    const subject = `Project Inquiry: ${details?.type || 'Digital Solution'} - ${details?.name || 'New Client'}`;
-    const body = details
-      ? `Hello Faruk,\n\nName: ${details.name}\nEmail: ${details.email}\nService: ${details.type}\n\nProject Scope:\n${details.message}\n\nBest regards.`
-      : `Hello Faruk,\n\nI would like to discuss a project with Darex.`;
-    return `mailto:fatiufaruk7@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
+  const whatsappDirectUrl = buildWhatsAppInquiryUrl();
 
   return (
     <section id="contact" className="py-24 bg-[#090a0f] border-t border-slate-800/80 relative overflow-hidden">
@@ -206,9 +181,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
 
           <div className="flex items-center gap-3">
             <a
-              href={whatsappUrl()}
+              href={whatsappDirectUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-700/50 transition-all shadow-sm hover:shadow-emerald-900/20"
             >
               <MessageSquare className="w-4 h-4 text-emerald-400" />
@@ -276,15 +251,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                     </a>
                     <div className="mt-2 flex items-center gap-3">
                       <a
-                        href={
-                          settings.socialMedia?.whatsapp
-                            ? (settings.socialMedia.whatsapp.startsWith('http')
-                                ? settings.socialMedia.whatsapp
-                                : `https://wa.me/${settings.socialMedia.whatsapp.replace(/[^0-9]/g, '')}`)
-                            : whatsappUrl()
-                        }
+                        href={whatsappDirectUrl}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
                       >
                         <span>WhatsApp Quick Chat</span>
@@ -384,38 +353,25 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                     <Twitter className="w-4 h-4" strokeWidth={1.4} />
                   </a>
                 )}
-                {(settings.socialMedia?.instagram?.trim() || 'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5') && (
-                  <a
-                    href={
-                      settings.socialMedia?.instagram?.trim() ||
-                      'https://www.instagram.com/farukfatiu?stkn=OW03andjamthMDd5'
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Faruk Fatiu on Instagram"
-                    title="Instagram Profile"
-                    className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
-                  >
-                    <Instagram className="w-4 h-4" strokeWidth={1.4} />
-                  </a>
-                )}
-                {(settings.socialMedia?.whatsapp?.trim() || settings.contact?.whatsappNumber || COMPANY_INFO.socialLinks.whatsapp) && (
-                  <a
-                    href={
-                      settings.socialMedia?.whatsapp?.trim()
-                        ? (settings.socialMedia.whatsapp.trim().startsWith('http')
-                            ? settings.socialMedia.whatsapp.trim()
-                            : `https://wa.me/${settings.socialMedia.whatsapp.replace(/[^0-9]/g, '')}`)
-                        : whatsappUrl()
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Darex on WhatsApp"
-                    className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
-                  >
-                    <MessageCircle className="w-4 h-4" strokeWidth={1.4} />
-                  </a>
-                )}
+                <a
+                  href={instagramLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Faruk Fatiu on Instagram"
+                  title="Instagram Profile"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-pink-400 hover:border-pink-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(236,72,153,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <Instagram className="w-4 h-4" strokeWidth={1.4} />
+                </a>
+                <a
+                  href={whatsappDirectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Darex on WhatsApp"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-800/80 via-[#10141e] to-[#080a0f] border border-slate-700/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_6px_18px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-105"
+                >
+                  <MessageCircle className="w-4 h-4" strokeWidth={1.4} />
+                </a>
               </div>
               <div className="mt-3">
                 <a
@@ -457,7 +413,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                   <div className="space-y-2">
                     <h3 className="text-2xl font-bold text-white">Inquiry Successfully Registered!</h3>
                     <p className="text-slate-300 max-w-lg mx-auto text-sm leading-relaxed">
-                      Thank you, <span className="text-white font-semibold">{submittedData.name}</span>. Your project inquiry has been securely stored. Our lead engineer (<span className="text-blue-400 font-mono">fatiufaruk7@gmail.com</span>) has received notice and will review your specifications.
+                      Thank you, <span className="text-white font-semibold">{submittedData.name}</span>. Your project inquiry has been received. Our lead engineer (<span className="text-blue-400 font-mono">fatiufaruk7@gmail.com</span>) will review your specifications and contact you directly.
                     </p>
                   </div>
 
@@ -468,9 +424,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
                       <a
-                        href={whatsappUrl(submittedData)}
+                        href={buildWhatsAppInquiryUrl(submittedData)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-md shadow-emerald-600/30"
                       >
                         <MessageSquare className="w-4 h-4" />
@@ -478,7 +434,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                       </a>
 
                       <a
-                        href={mailtoUrl(submittedData)}
+                        href={buildMailtoInquiryUrl(submittedData)}
                         className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700"
                       >
                         <Mail className="w-4 h-4 text-blue-400" />
@@ -652,7 +608,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                       type="submit"
                       disabled={isSubmitting}
                       id="contact-submit-btn"
-                      className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-500 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-xl shadow-blue-600/30 hover:shadow-blue-600/50"
+                      className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-500 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-xl shadow-blue-600/30 hover:shadow-blue-600/50 cursor-pointer"
                     >
                       {isSubmitting ? (
                         <>
@@ -670,9 +626,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ selectedProjectT
                     <div className="text-center text-xs text-slate-400">
                       Or connect instantly via WhatsApp:{' '}
                       <a
-                        href={whatsappUrl()}
+                        href={whatsappDirectUrl}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="text-emerald-400 hover:underline font-medium inline-flex items-center gap-1"
                       >
                         <span>+234 813 794 1486</span>

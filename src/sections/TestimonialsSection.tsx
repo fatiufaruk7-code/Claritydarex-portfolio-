@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 import {
   UserCheck,
@@ -11,36 +11,12 @@ import {
   Quote,
   type LucideIcon,
 } from 'lucide-react';
-import {
-  subscribeToTestimonials,
-  subscribeToCommitments,
-} from '../services/testimonialsService';
-import { COMMITMENTS_DATA } from '../data/testimonials';
+import { COMMITMENTS_DATA, TESTIMONIALS_DATA } from '../data/testimonials';
 import { ClassicIcon, type ClassicIconVariant } from '../components/ClassicIcon';
-import type { CommitmentItem, TestimonialItem } from '../types';
 
 export const TestimonialsSection: React.FC = () => {
-  const [commitments, setCommitments] = useState<CommitmentItem[]>(COMMITMENTS_DATA);
-  const [testimonials, setTestimonials] = useState<TestimonialItem[]>([]);
-
-  // Synchronize commitments and testimonials from Firestore
-  useEffect(() => {
-    const unsubCommitments = subscribeToCommitments((items) => {
-      if (items && items.length > 0) {
-        setCommitments(items);
-      }
-    });
-
-    const unsubTestimonials = subscribeToTestimonials((items) => {
-      const published = items.filter((t) => t.published !== false);
-      setTestimonials(published);
-    });
-
-    return () => {
-      unsubCommitments();
-      unsubTestimonials();
-    };
-  }, []);
+  const commitments = COMMITMENTS_DATA;
+  const testimonials = TESTIMONIALS_DATA;
 
   const getIconData = (iconName: string): { icon: LucideIcon; variant: ClassicIconVariant } => {
     switch (iconName) {

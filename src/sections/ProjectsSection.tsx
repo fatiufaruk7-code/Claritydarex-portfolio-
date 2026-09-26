@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ExternalLink, ArrowRight, Layers } from 'lucide-react';
-import { subscribeToProjects } from '../services/projectsService';
 import { PROJECTS_DATA } from '../data/projects';
 import type { ProjectItem } from '../types';
 
@@ -12,23 +11,8 @@ interface ProjectsSectionProps {
 const DEFAULT_CATEGORIES = ['All', 'Corporate', 'Web Apps', 'E-commerce', 'Portfolio', 'Portals'];
 
 export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ onSelectProject }) => {
-  const [projects, setProjects] = useState<ProjectItem[]>(PROJECTS_DATA);
+  const projects = PROJECTS_DATA;
   const [activeCategory, setActiveCategory] = useState<string>('All');
-
-  // Real-time synchronization from Firestore
-  useEffect(() => {
-    const unsubscribe = subscribeToProjects(
-      (realtimeProjects) => {
-        const published = realtimeProjects.filter((p) => p.status !== 'DRAFT');
-        setProjects(published.length > 0 ? published : realtimeProjects);
-      },
-      (err) => {
-        console.warn('[ProjectsSection] Using fallback project data:', err);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
 
   const categories = useMemo(() => {
     const set = new Set<string>();

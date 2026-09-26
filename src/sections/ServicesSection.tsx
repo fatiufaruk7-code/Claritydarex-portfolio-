@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 import {
   Code2,
@@ -12,32 +12,15 @@ import {
   Check,
   type LucideIcon,
 } from 'lucide-react';
-import { subscribeToServices } from '../services/servicesService';
 import { SERVICES_DATA } from '../data/services';
 import { ClassicIcon } from '../components/ClassicIcon';
-import type { ServiceItem } from '../types';
 
 interface ServicesSectionProps {
   onSelectService: (serviceName: string) => void;
 }
 
 export const ServicesSection: React.FC<ServicesSectionProps> = ({ onSelectService }) => {
-  const [services, setServices] = useState<ServiceItem[]>(SERVICES_DATA);
-
-  // Synchronize services from Firestore single source of truth
-  useEffect(() => {
-    const unsubscribe = subscribeToServices(
-      (realtimeServices) => {
-        const active = realtimeServices.filter((s) => s.status !== 'DRAFT');
-        setServices(active.length > 0 ? active : realtimeServices);
-      },
-      (err) => {
-        console.warn('[ServicesSection] Using fallback service data:', err);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
+  const services = SERVICES_DATA;
 
   const getIconComponent = (iconName: string): LucideIcon => {
     switch (iconName) {

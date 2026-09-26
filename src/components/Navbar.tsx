@@ -1,15 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ArrowUpRight, ShieldCheck, Globe, ExternalLink } from 'lucide-react';
+import { Menu, X, ArrowUpRight, Globe, ExternalLink } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { PWAInstallButton } from './PWAInstallButton';
 import { COMPANY_INFO } from '../data/company';
 
-interface NavbarProps {
-  currentView: 'home' | 'admin';
-  onNavigateToView: (view: 'home' | 'admin') => void;
-}
-
-export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView }) => {
+export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -23,19 +18,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView })
 
   const handleNavClick = (sectionId: string) => {
     setMobileMenuOpen(false);
-    if (currentView !== 'home') {
-      onNavigateToView('home');
-      setTimeout(() => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    } else {
-      const element = document.getElementById(sectionId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -64,111 +49,75 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView })
           </a>
 
           {/* Desktop Navigation */}
-          {currentView === 'home' ? (
-            <nav className="hidden md:flex items-center gap-1 lg:gap-2" aria-label="Main Navigation">
-              <button
-                onClick={() => handleNavClick('home')}
-                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
-                Home
-              </button>
-              <button
-                onClick={() => handleNavClick('about')}
-                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
-                About
-              </button>
-              <button
-                onClick={() => handleNavClick('services')}
-                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
-                Services
-              </button>
-              <button
-                onClick={() => handleNavClick('projects')}
-                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
-                Projects
-              </button>
-              <button
-                onClick={() => handleNavClick('why-darex')}
-                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
-                Why Darex
-              </button>
-              <button
-                onClick={() => handleNavClick('faq')}
-                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
-                FAQ
-              </button>
-              <button
-                onClick={() => handleNavClick('contact')}
-                className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
-                Contact
-              </button>
-            </nav>
-          ) : (
-            <div className="hidden md:flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/60 border border-blue-800/50 text-xs text-blue-400 font-mono">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Protected Admin Portal
-              </span>
-              <button
-                onClick={() => onNavigateToView('home')}
-                className="text-sm text-slate-300 hover:text-white transition-colors"
-              >
-                Return to Public Website
-              </button>
-            </div>
-          )}
+          <nav className="hidden md:flex items-center gap-1 lg:gap-2" aria-label="Main Navigation">
+            <button
+              onClick={() => handleNavClick('home')}
+              className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              Home
+            </button>
+            <button
+              onClick={() => handleNavClick('about')}
+              className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              About
+            </button>
+            <button
+              onClick={() => handleNavClick('services')}
+              className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              Services
+            </button>
+            <button
+              onClick={() => handleNavClick('projects')}
+              className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              Projects
+            </button>
+            <button
+              onClick={() => handleNavClick('why-darex')}
+              className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              Why Darex
+            </button>
+            <button
+              onClick={() => handleNavClick('faq')}
+              className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              FAQ
+            </button>
+            <button
+              onClick={() => handleNavClick('contact')}
+              className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              Contact
+            </button>
+          </nav>
 
           {/* Desktop Right CTA */}
           <div className="hidden md:flex items-center gap-3">
-            {currentView === 'home' ? (
-              <>
-                <PWAInstallButton variant="header" />
+            <PWAInstallButton variant="header" />
 
-                <a
-                  href={COMPANY_INFO.officialWebsite}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Visit Darex Official Website"
-                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-all shadow-sm"
-                >
-                  <Globe className="w-3.5 h-3.5 text-emerald-400" strokeWidth={1.5} />
-                  <span>Darex Website</span>
-                  <ExternalLink className="w-3 h-3 opacity-60" strokeWidth={1.5} />
-                </a>
+            <a
+              href={COMPANY_INFO.officialWebsite}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Visit Darex Official Website"
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-all shadow-sm"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-400" strokeWidth={1.5} />
+              <span>Darex Website</span>
+              <ExternalLink className="w-3 h-3 opacity-60" strokeWidth={1.5} />
+            </a>
 
-                <button
-                  onClick={() => onNavigateToView('admin')}
-                  title="Darex Administrator Console"
-                  id="navbar-admin-btn"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-all shadow-sm active:scale-95"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" strokeWidth={1.5} />
-                  <span>Admin</span>
-                </button>
-
-                <button
-                  onClick={() => handleNavClick('contact')}
-                  id="navbar-get-started-btn"
-                  className="relative group inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 active:scale-[0.98] transition-all duration-200 shadow-md shadow-blue-600/30 hover:shadow-blue-600/50"
-                >
-                  <span>Get Started</span>
-                  <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={1.5} />
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => onNavigateToView('home')}
-                className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
-              >
-                View Live Site
-              </button>
-            )}
+            <button
+              onClick={() => handleNavClick('contact')}
+              id="navbar-get-started-btn"
+              className="relative group inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 active:scale-[0.98] transition-all duration-200 shadow-md shadow-blue-600/30 hover:shadow-blue-600/50 cursor-pointer"
+            >
+              <span>Get Started</span>
+              <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={1.5} />
+            </button>
           </div>
 
           {/* Mobile Hamburger Button */}
@@ -192,103 +141,73 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigateToView })
           id="mobile-nav-dropdown"
           className="md:hidden bg-[#0d1017]/95 backdrop-blur-xl border-b border-slate-800 px-5 pt-4 pb-6 mt-3 shadow-2xl transition-all"
         >
-          {currentView === 'home' ? (
-            <div className="flex flex-col space-y-2">
-              <button
-                onClick={() => handleNavClick('home')}
-                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={() => handleNavClick('home')}
+              className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+            >
+              Home
+            </button>
+            <button
+              onClick={() => handleNavClick('about')}
+              className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+            >
+              About
+            </button>
+            <button
+              onClick={() => handleNavClick('services')}
+              className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+            >
+              Services
+            </button>
+            <button
+              onClick={() => handleNavClick('projects')}
+              className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+            >
+              Projects
+            </button>
+            <button
+              onClick={() => handleNavClick('why-darex')}
+              className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+            >
+              Why Darex
+            </button>
+            <button
+              onClick={() => handleNavClick('faq')}
+              className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+            >
+              FAQ
+            </button>
+            <button
+              onClick={() => handleNavClick('contact')}
+              className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+            >
+              Contact
+            </button>
+
+            <div className="pt-4 border-t border-slate-800 space-y-2">
+              <PWAInstallButton variant="mobile-nav" />
+
+              <a
+                href={COMPANY_INFO.officialWebsite}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-blue-300 hover:text-white bg-blue-950/40 border border-blue-800/60 transition-colors"
               >
-                Home
-              </button>
-              <button
-                onClick={() => handleNavClick('about')}
-                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
-              >
-                About
-              </button>
-              <button
-                onClick={() => handleNavClick('services')}
-                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
-              >
-                Services
-              </button>
-              <button
-                onClick={() => handleNavClick('projects')}
-                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
-              >
-                Projects
-              </button>
-              <button
-                onClick={() => handleNavClick('why-darex')}
-                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
-              >
-                Why Darex
-              </button>
-              <button
-                onClick={() => handleNavClick('faq')}
-                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
-              >
-                FAQ
-              </button>
+                <Globe className="w-3.5 h-3.5 text-blue-400" strokeWidth={1.5} />
+                <span>Visit Darex (claritydarex.vercel.app)</span>
+                <ExternalLink className="w-3 h-3 opacity-70" strokeWidth={1.5} />
+              </a>
+
               <button
                 onClick={() => handleNavClick('contact')}
-                className="text-left px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30"
               >
-                Contact
-              </button>
-
-              <div className="pt-4 border-t border-slate-800 space-y-2">
-                <PWAInstallButton variant="mobile-nav" />
-
-                <a
-                  href={COMPANY_INFO.officialWebsite}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-blue-300 hover:text-white bg-blue-950/40 border border-blue-800/60 transition-colors"
-                >
-                  <Globe className="w-3.5 h-3.5 text-blue-400" strokeWidth={1.5} />
-                  <span>Visit Darex (claritydarex.vercel.app)</span>
-                  <ExternalLink className="w-3 h-3 opacity-70" strokeWidth={1.5} />
-                </a>
-
-                <button
-                  onClick={() => handleNavClick('contact')}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30"
-                >
-                  <span>Get Started</span>
-                  <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onNavigateToView('admin');
-                  }}
-                  id="mobile-nav-admin-btn"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-mono text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" strokeWidth={1.5} />
-                  <span>Admin Portal (Faruk Fatiu)</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-blue-400">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Darex Administrator Console</span>
-              </div>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onNavigateToView('home');
-                }}
-                className="w-full py-3 text-center rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium transition-colors"
-              >
-                Return to Public Website
+                <span>Get Started</span>
+                <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </header>

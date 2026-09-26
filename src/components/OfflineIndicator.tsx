@@ -58,7 +58,7 @@ export const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ hideBottomBa
           <span className="text-[10px] font-normal text-slate-400">• Cached Content</span>
         </div>
         <div className="text-[11px] text-slate-300 truncate">
-          Viewing saved portfolio. Inquiries & Admin require internet.
+          Viewing saved portfolio. Submitting inquiries requires an internet connection.
         </div>
       </div>
     </div>
